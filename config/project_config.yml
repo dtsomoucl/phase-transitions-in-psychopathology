@@ -1,0 +1,17 @@
+project_name: pathological_phase_transitions_active_inference
+raw_data:
+  abcd_dir: data_ABCD
+  mcs_dir: data_MCS
+outputs:
+  inventory_dir: outputs/inventory
+  derived_dir: outputs/derived
+  tables_dir: outputs/tables
+  figures_dir: outputs/figures
+  logs_dir: logs
+analysis:
+  abcd_baseline_session: ses-02A
+  abcd_followup_session: ses-05A
+  mcs_baseline_wave: age14
+  mcs_followup_waves:
+    - age17
+    - age23
