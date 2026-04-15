@@ -1,6 +1,6 @@
 ### DT --> Reliability summaries for the theory-motivated composite scales.
 
-compute_standardised_reliability <- function(data, id_var, items, cohort, wave, composite) {
+compute_standardised_reliability <- function(data, id_var, items, cohort, wave, composite, exclude_values = NULL) {
   item_df <- data %>%
     select(all_of(c(id_var, items))) %>%
     distinct()
@@ -8,6 +8,7 @@ compute_standardised_reliability <- function(data, id_var, items, cohort, wave, 
   complete_items <- item_df %>%
     select(all_of(items)) %>%
     mutate(across(everything(), clean_numeric)) %>%
+    mutate(across(everything(), ~ if (!is.null(exclude_values)) replace(., . %in% exclude_values, NA_real_) else .)) %>%
     tidyr::drop_na()
 
   out <- tibble(
@@ -88,7 +89,16 @@ build_abcd_composite_reliability <- function(abcd_obj) {
       items = c("nihtb_flanker"),
       cohort = "ABCD",
       wave = abcd_obj$baseline_session,
-      composite = "Executive-control primary proxy"
+      composite = "Cognitive-control primary proxy"
+    ),
+    compute_standardised_reliability(
+      data = inputs$positive_affect,
+      id_var = "participant_id",
+      items = sprintf("mh_y_pai_%03d", 1:9),
+      cohort = "ABCD",
+      wave = "ses-03A",
+      composite = "Positive-affect balance denominator",
+      exclude_values = c(777, 999)
     )
   )
 }

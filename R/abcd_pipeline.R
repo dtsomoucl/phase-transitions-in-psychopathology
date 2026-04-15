@@ -20,8 +20,8 @@ abcd_variable_mapping <- function(config) {
       "id_wave", "id_wave", rep("covariate", 6),
       rep("outcome", 6),
       "field_like", "field_like", "field_like",
-      "field_sensitivity", "field_sensitivity", "field_sensitivity",
-      "precision_like", "precision_sensitivity", "precision_sensitivity", "precision_sensitivity",
+      "field_sensitivity", "field_sensitivity", "field_sensitivity", "field_sensitivity",
+      "precision_like", "precision_sensitivity", "precision_sensitivity", "precision_sensitivity", "precision_sensitivity",
       "context", "context", "context", "context", "context",
       "prs"
     ),
@@ -29,7 +29,7 @@ abcd_variable_mapping <- function(config) {
       "participant_id", "session_id", "age", "sex", "site", "household_income", "parent_education", "neighborhood_disadvantage",
       "internalising", "withdrawn_depressed", "depressive_problems", "youth_bpm_internalising", "youth_bpm_attention", "youth_depression_impairment",
       "school_environment", "school_involvement", "school_disengagement",
-      "bas_drive", "bas_fun_seeking", "bas_reward_responsiveness",
+      "bas_drive", "bas_fun_seeking", "bas_reward_responsiveness", "positive_affect_youth",
       "flanker_control", "pattern_comparison_processing_speed", "crystallized_composite",
       "card_sort_flexibility_legacy", "list_sorting_working_memory_legacy",
       "family_cohesion", "family_conflict", "sleep_duration", "social_jetlag", "neighborhood_adi_national_percentile",
@@ -42,7 +42,7 @@ abcd_variable_mapping <- function(config) {
         "ab_g_stc.tsv", "ab_g_dyn.tsv", "le_l_adi.tsv",
         "mh_p_cbcl.tsv", "mh_p_cbcl.tsv", "mh_p_cbcl.tsv", "mh_y_bpm.tsv", "mh_y_bpm.tsv", "mh_y_ksads__dep.parquet",
         "fc_y_srpf.tsv", "fc_y_srpf.tsv", "fc_y_srpf.tsv",
-        "mh_y_bisbas.tsv", "mh_y_bisbas.tsv", "mh_y_bisbas.tsv",
+        "mh_y_bisbas.tsv", "mh_y_bisbas.tsv", "mh_y_bisbas.tsv", "mh_y_pai.tsv",
         "nc_y_nihtb.tsv", "nc_y_nihtb.tsv", "nc_y_nihtb.tsv", "nc_y_nihtb.tsv", "nc_y_nihtb.tsv",
         "fc_y_fes.tsv", "fc_y_fes.tsv", "ph_y_mctq.tsv", "ph_y_mctq.tsv", "le_l_adi.tsv",
         NA_character_
@@ -52,7 +52,7 @@ abcd_variable_mapping <- function(config) {
       "participant_id", "session_id", "mh_p_cbcl_age", "ab_g_stc__cohort_sex", "ab_g_dyn__design_site", "ab_p_demo__income__hhold_001", "ab_p_demo__edu__slf_001__v02", "le_l_adi__addr1__national_prcnt",
       "mh_p_cbcl__synd__int_tscore", "mh_p_cbcl__synd__wthdep_tscore", "mh_p_cbcl__dsm__dep_tscore", "mh_y_bpm__int_tscore", "mh_y_bpm__attn_tscore", "mh_y_ksads__dep__impfunct__pres_sx",
       "fc_y_srpf__env_mean", "fc_y_srpf__involv_mean", "fc_y_srpf__dis_mean",
-      "mh_y_bisbas__bas__dr_sum", "mh_y_bisbas__bas__fs_sum", "mh_y_bisbas__bas__rr_sum",
+      "mh_y_bisbas__bas__dr_sum", "mh_y_bisbas__bas__fs_sum", "mh_y_bisbas__bas__rr_sum", "mh_y_pai_sum",
       "nc_y_nihtb__flnkr__fullcor_tscore",
       "nc_y_nihtb__pttcp__fullcor_tscore", "nc_y_nihtb__comp__cryst__fullcorr_tscore",
       "nc_y_nihtb__crdst__fullcorr_tscore", "nc_y_nihtb__lswmt__fullcor_tscore",
@@ -61,10 +61,10 @@ abcd_variable_mapping <- function(config) {
     ),
     notes = c(
       "ABCD participant identifier", "ABCD session identifier", "Table-specific age", "Stable cohort sex", "Assessment site", "Parent-reported household income band", "Parent education version 2 when available", "Linked area deprivation index percentile (address 1)",
-      "Primary outcome for ABCD longitudinal analyses", "Withdrawal/disengagement proxy", "Secondary depressive outcome", "Youth-reported internalising sensitivity outcome", "Youth-reported attention-problems sensitivity outcome", "Youth KSADS depression-related functional impairment; used in the secondary balance-index analysis at ses-04A",
+      "Primary outcome for ABCD longitudinal analyses", "Withdrawal/disengagement proxy", "Secondary depressive outcome", "Youth-reported internalising sensitivity outcome", "Youth-reported attention-problems sensitivity outcome", "Youth KSADS depression-related functional impairment",
       "School climate/protection", "School involvement", "Reverse-scored in the primary field composite",
-      "Alternative field-like candidate", "Alternative field-like candidate", "Alternative field-like candidate",
-      "Primary executive-control proxy used in the main models",
+      "Alternative field-like candidate", "Alternative field-like candidate", "Alternative field-like candidate", "Age-13 youth positive-affect denominator used in the ABCD balance-index analysis",
+      "Primary cognitive-control proxy used in the main models",
       "Precision-proxy sensitivity: Pattern Comparison Processing Speed (good ses-02A coverage)",
       "Precision-proxy sensitivity: Crystallized composite (good ses-02A coverage)",
       "Replaced by pttcp/crystallized at ses-02A: only 5 valid cases", "Replaced by pttcp/crystallized at ses-02A: only 14 valid cases",
@@ -150,6 +150,14 @@ build_abcd_dataset <- function(config) {
     )
   )
 
+  pai <- read_abcd_tsv_any(
+    fs::path(abcd_dir, "mh_y_pai.tsv"),
+    c(
+      "participant_id", "session_id", "mh_y_pai_age", "mh_y_pai_sum",
+      sprintf("mh_y_pai_%03d", 1:9)
+    )
+  )
+
   school <- read_abcd_tsv_any(
     fs::path(abcd_dir, "fc_y_srpf.tsv"),
     c(
@@ -214,6 +222,7 @@ build_abcd_dataset <- function(config) {
     left_join(bpm_y, by = c("participant_id", "session_id")) %>%
     left_join(ksads_dep, by = c("participant_id", "session_id")) %>%
     left_join(bisbas, by = c("participant_id", "session_id")) %>%
+    left_join(pai, by = c("participant_id", "session_id")) %>%
     left_join(school, by = c("participant_id", "session_id")) %>%
     left_join(nihtb, by = c("participant_id", "session_id")) %>%
     left_join(bdefs, by = c("participant_id", "session_id")) %>%
@@ -286,6 +295,7 @@ build_abcd_dataset <- function(config) {
         clean_numeric(mh_y_bisbas__bas__rr_sum),
         clean_numeric(mh_y_bisbas__bas__rr_sum__v01)
       ),
+      positive_affect_sum = clean_numeric(mh_y_pai_sum),
       school_env = clean_numeric(fc_y_srpf__env_mean),
       school_involvement = clean_numeric(fc_y_srpf__involv_mean),
       school_disengagement = clean_numeric(fc_y_srpf__dis_mean),
@@ -446,15 +456,6 @@ build_abcd_dataset <- function(config) {
       site = as.factor(site)
     )
 
-  dep_impair_ses04 <- long %>%
-    filter(session_id == "ses-04A") %>%
-    select(participant_id, depression_impair_case) %>%
-    distinct(participant_id, .keep_all = TRUE) %>%
-    rename(depression_impair_case_ses04 = depression_impair_case)
-
-  wide <- wide %>%
-    left_join(dep_impair_ses04, by = "participant_id")
-
   reliability_inputs <- list(
     field = long %>%
       filter(session_id == baseline_session) %>%
@@ -469,6 +470,12 @@ build_abcd_dataset <- function(config) {
       select(
         participant_id,
         nihtb_flanker
+      ),
+    positive_affect = long %>%
+      filter(session_id == "ses-03A") %>%
+      select(
+        participant_id,
+        all_of(sprintf("mh_y_pai_%03d", 1:9))
       )
   )
 

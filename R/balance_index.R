@@ -334,38 +334,26 @@ fit_mcs_balance_models <- function(mcs_obj) {
   )
 }
 
-make_abcd_balance_subset <- function(df, outcome_mode = c("internalising_case", "depression_impairment"), threshold = 64) {
-  outcome_mode <- match.arg(outcome_mode)
-
+make_abcd_balance_subset <- function(df, threshold = 64) {
   bal <- df %>%
     dplyr::filter(
-      !is.na(stress_val), !is.na(motiv_val),
-      stress_val > 0, motiv_val > 0,
+      !is.na(stress_val), !is.na(positive_affect_val),
+      stress_val > 0, positive_affect_val > 0,
       !is.na(baseline_internalising_t)
     ) %>%
     dplyr::mutate(
-      psi = log(stress_val / motiv_val),
+      psi = log(stress_val / positive_affect_val),
       psi_z = zscore(psi),
       stress_z = zscore(stress_val),
-      motivation_z = zscore(motiv_val),
+      positive_affect_z = zscore(positive_affect_val),
       site = as.factor(site)
-    )
-
-  if (outcome_mode == "internalising_case") {
-    bal <- bal %>%
-      dplyr::filter(!is.na(followup_internalising_t)) %>%
-      dplyr::mutate(
-        probable_internalising_case = dplyr::if_else(followup_internalising_t >= threshold, 1, 0),
-        baseline_noncase = dplyr::if_else(baseline_internalising_t < threshold, 1, 0)
-      ) %>%
-      dplyr::filter(baseline_noncase == 1)
-  } else {
-    bal <- bal %>%
-      dplyr::filter(!is.na(depression_impair_case_ses04)) %>%
-      dplyr::mutate(
-        depression_impairment_case = as.numeric(depression_impair_case_ses04)
-      )
-  }
+    ) %>%
+    dplyr::filter(!is.na(followup_internalising_t)) %>%
+    dplyr::mutate(
+      probable_internalising_case = dplyr::if_else(followup_internalising_t >= threshold, 1, 0),
+      baseline_noncase = dplyr::if_else(baseline_internalising_t < threshold, 1, 0)
+    ) %>%
+    dplyr::filter(baseline_noncase == 1)
 
   if (!"baseline_age_z" %in% names(bal) || all(is.na(bal$baseline_age_z))) bal$baseline_age_z <- zscore(bal$baseline_age)
   if (!"sex_z" %in% names(bal) || all(is.na(bal$sex_z))) bal$sex_z <- zscore(bal$sex)
@@ -377,7 +365,7 @@ make_abcd_balance_subset <- function(df, outcome_mode = c("internalising_case", 
   bal
 }
 
-fit_abcd_balance_core <- function(bal, outcome_var, outcome_label) {
+fit_abcd_balance_core <- function(bal, outcome_var, outcome_label, denominator_model_label = "Positive affect only") {
   if (is.null(bal) || nrow(bal) == 0) {
     return(list(
       descriptives = tibble::tibble(note = "No estimable models"),
@@ -395,7 +383,7 @@ fit_abcd_balance_core <- function(bal, outcome_var, outcome_label) {
       psi_q25 = quantile(psi, 0.25, na.rm = TRUE),
       psi_q75 = quantile(psi, 0.75, na.rm = TRUE),
       stress_mean = mean(stress_val, na.rm = TRUE),
-      motiv_mean = mean(motiv_val, na.rm = TRUE),
+      positive_affect_mean = mean(positive_affect_val, na.rm = TRUE),
       case_rate = mean(.data[[outcome_var]], na.rm = TRUE)
     )
 
@@ -424,12 +412,12 @@ fit_abcd_balance_core <- function(bal, outcome_var, outcome_label) {
   }
 
   m_stress <- tryCatch(fit_fn(as.formula(paste0(outcome_var, " ~ stress_z", cov_str))), error = function(e) NULL)
-  m_motivation <- tryCatch(fit_fn(as.formula(paste0(outcome_var, " ~ motivation_z", cov_str))), error = function(e) NULL)
+  m_positive_affect <- tryCatch(fit_fn(as.formula(paste0(outcome_var, " ~ positive_affect_z", cov_str))), error = function(e) NULL)
   m_balance <- tryCatch(fit_fn(as.formula(paste0(outcome_var, " ~ psi_z", cov_str))), error = function(e) NULL)
 
   comparison <- dplyr::bind_rows(
     balance_extract_coef(m_stress, "stress_z", "Stress only", outcome_label),
-    balance_extract_coef(m_motivation, "motivation_z", "Motivation only", outcome_label),
+    balance_extract_coef(m_positive_affect, "positive_affect_z", denominator_model_label, outcome_label),
     balance_extract_coef(m_balance, "psi_z", "Balance index", outcome_label)
   )
 
@@ -451,88 +439,97 @@ fit_abcd_balance_core <- function(bal, outcome_var, outcome_label) {
   )
 }
 
+make_abcd_balance_base <- function(
+  abcd_obj,
+  baseline_session,
+  followup_session,
+  stress_var = "cbcl_stress_sum",
+  denominator_var = "positive_affect_sum"
+) {
+  long <- abcd_obj$long
+  if (is.null(long) || nrow(long) == 0) {
+    return(NULL)
+  }
+
+  required_vars <- c(
+    "participant_id", "session_id", "age", "sex", "site",
+    "household_income", "parent_education", "neighborhood_risk",
+    "internalising_t", stress_var, denominator_var
+  )
+  if (!all(required_vars %in% names(long))) {
+    return(NULL)
+  }
+
+  baseline_df <- long %>%
+    dplyr::filter(session_id == baseline_session) %>%
+    dplyr::transmute(
+      participant_id,
+      baseline_age = age,
+      sex = sex,
+      site = site,
+      household_income = household_income,
+      parent_education = parent_education,
+      neighborhood_risk = neighborhood_risk,
+      baseline_internalising_t = internalising_t,
+      stress_val = .data[[stress_var]],
+      positive_affect_val = .data[[denominator_var]]
+    ) %>%
+    dplyr::distinct(participant_id, .keep_all = TRUE)
+
+  followup_df <- long %>%
+    dplyr::filter(session_id == followup_session) %>%
+    dplyr::transmute(
+      participant_id,
+      followup_internalising_t = internalising_t
+    ) %>%
+    dplyr::distinct(participant_id, .keep_all = TRUE)
+
+  baseline_df %>%
+    dplyr::left_join(followup_df, by = "participant_id") %>%
+    dplyr::mutate(
+      baseline_age_z = zscore(baseline_age),
+      sex_z = zscore(sex),
+      household_income_z = zscore(household_income),
+      parent_education_z = zscore(parent_education),
+      neighborhood_risk_z = zscore(neighborhood_risk),
+      baseline_internalising_z = zscore(baseline_internalising_t),
+      site = as.factor(site)
+    )
+}
+
 ### DT --> ================================================================
 ### DT --> ABCD balance index
-### DT --> psi = log(CBCL stress / BAS Drive), with one model for later
-### DT --> internalising caseness and a second model for youth KSADS
-### DT --> depression-related functional impairment at ses-04A.
+### DT --> psi = log(CBCL stress / Positive Affect), using ses-03A stress
+### DT --> and ses-03A youth-reported positive affect to predict later
+### DT --> internalising caseness at ses-05A.
 ### DT --> ================================================================
 
 fit_abcd_balance_models <- function(abcd_obj, config) {
-  df <- abcd_obj$wide
-  if (is.null(df)) {
-    message("ABCD balance index: abcd_obj$wide is not available. Skipping.")
+  outcome_label <- "Age 15 probable internalising case (CBCL >= 64; age-13 baseline < 64)"
+  bal_base <- make_abcd_balance_base(
+    abcd_obj = abcd_obj,
+    baseline_session = "ses-03A",
+    followup_session = config$analysis$abcd_followup_session,
+    stress_var = "cbcl_stress_sum",
+    denominator_var = "positive_affect_sum"
+  )
+
+  if (is.null(bal_base) || nrow(bal_base) == 0) {
+    message("ABCD balance index: required age-13 variables not found. Skipping.")
     return(balance_note_result("Variables not available"))
   }
 
-  baseline <- config$analysis$abcd_baseline_session
-  stress_candidates <- c(
-    paste0("cbcl_stress_", baseline),
-    paste0("stress_", baseline),
-    "cbcl_stress_baseline",
-    "stress_baseline",
-    "mh_p_cbcl__strs_sum"
-  )
-  motivation_candidates <- c(
-    paste0("bas_drive_", baseline),
-    "bas_drive_baseline",
-    "bas_drive",
-    "mh_y_bisbas__bas__dr_sum"
-  )
-
-  stress_var <- intersect(stress_candidates, names(df))
-  motiv_var <- intersect(motivation_candidates, names(df))
-
-  if (length(stress_var) == 0 || length(motiv_var) == 0) {
-    message("ABCD balance index: attempting to construct from long-format data.")
-    long <- abcd_obj$long
-    if (!is.null(long)) {
-      raw_stress <- intersect(c("mh_p_cbcl__strs_sum", "cbcl_stress_sum"), names(long))
-      raw_motiv <- intersect(c("mh_y_bisbas__bas__dr_sum", "bas_drive"), names(long))
-      if (length(raw_stress) > 0 && length(raw_motiv) > 0) {
-        baseline_data <- long %>%
-          dplyr::filter(session_id == baseline) %>%
-          dplyr::select(participant_id, !!rlang::sym(raw_stress[[1]]), !!rlang::sym(raw_motiv[[1]]))
-        names(baseline_data)[2:3] <- c("cbcl_stress_bl", "bas_drive_bl")
-        df <- df %>% dplyr::left_join(baseline_data, by = "participant_id")
-        stress_var <- "cbcl_stress_bl"
-        motiv_var <- "bas_drive_bl"
-      }
-    }
-  } else {
-    stress_var <- stress_var[[1]]
-    motiv_var <- motiv_var[[1]]
-  }
-
-  if (length(stress_var) == 0 || length(motiv_var) == 0) {
-    message("ABCD balance index: required variables not found. Skipping.")
-    return(balance_note_result("Variables not available"))
-  }
-
-  bal_base <- df %>%
-    dplyr::rename(
-      stress_val = !!rlang::sym(stress_var),
-      motiv_val = !!rlang::sym(motiv_var)
-    )
-
-  primary_results <- fit_abcd_balance_core(
-    make_abcd_balance_subset(bal_base, outcome_mode = "internalising_case", threshold = 64),
+  results <- fit_abcd_balance_core(
+    make_abcd_balance_subset(bal_base, threshold = 64),
     outcome_var = "probable_internalising_case",
-    outcome_label = "Age 15 probable internalising case (CBCL >= 64; baseline < 64)"
+    outcome_label = outcome_label,
+    denominator_model_label = "Positive affect only"
   )
 
-  secondary_results <- fit_abcd_balance_core(
-    make_abcd_balance_subset(bal_base, outcome_mode = "depression_impairment"),
-    outcome_var = "depression_impairment_case",
-    outcome_label = "Age 14 youth KSADS depression-related functional impairment (ses-04A)"
-  )
+  if (!"note" %in% names(results$descriptives)) {
+    results$descriptives <- results$descriptives %>%
+      dplyr::mutate(outcome = outcome_label, .before = 1)
+  }
 
-  list(
-    descriptives = dplyr::bind_rows(
-      primary_results$descriptives %>% dplyr::mutate(outcome = "Age 15 probable internalising case (CBCL >= 64; baseline < 64)", .before = 1),
-      secondary_results$descriptives %>% dplyr::mutate(outcome = "Age 14 youth KSADS depression-related functional impairment (ses-04A)", .before = 1)
-    ),
-    comparison = dplyr::bind_rows(primary_results$comparison, secondary_results$comparison),
-    aic = dplyr::bind_rows(primary_results$aic, secondary_results$aic)
-  )
+  results
 }

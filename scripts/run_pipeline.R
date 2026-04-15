@@ -108,7 +108,7 @@ safe_write_csv(abcd_no_parented$coefficient_test, fs::path(config$outputs$tables
 ### DT --> empirical proxy for the product γΔc — the combined location
 ### DT --> in the phase space governing transitions.
 ### DT --> MCS: ψ₁₇ = log(Kessler / WEMWBS), age 17 → age 23 outcomes
-### DT --> ABCD: ψ = log(CBCL stress / BAS Drive), ses-02A → ses-05A
+### DT --> ABCD: ψ = log(CBCL stress / Positive Affect), ses-03A → ses-05A
 ### DT --> ================================================================
 
 source("R/balance_index.R")
@@ -150,7 +150,7 @@ trajectory_mcs_plot <- make_trajectory_plot(
 comparison_abcd_plot <- make_comparison_plot(
   abcd_results$coefficients,
   "ABCD",
-  "ABCD Motivation/Engagement versus Executive-Control"
+  "ABCD Motivation/Engagement versus Cognitive-Control"
 )
 
 comparison_mcs_plot <- make_comparison_plot(
@@ -177,7 +177,7 @@ comparison_ylim <- c(comparison_limits$ymin, comparison_limits$ymax)
 comparison_abcd_plot <- make_comparison_plot(
   abcd_results$coefficients,
   "ABCD",
-  "ABCD Motivation/Engagement versus Executive-Control",
+  "ABCD Motivation/Engagement versus Cognitive-Control",
   y_limits = comparison_ylim
 )
 

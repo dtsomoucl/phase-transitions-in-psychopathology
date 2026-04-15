@@ -16,7 +16,6 @@ Code and analysis materials for a project that combines:
 
 - `Python_code/`
   - Main simulation code for the theoretical and computational results.
-  - `main.py`: top-level Python entry point for the simulation workflow
   - `sim_psychopathology.py`: onset simulations and core transition figures
   - `step2_hysteresis.py`: recovery-boundary and field-dominance analyses
   - `step3_orthogonal.py`: orthogonal intervention analyses
@@ -37,6 +36,10 @@ Code and analysis materials for a project that combines:
 
 - `scripts/`
   - `run_pipeline.R`: top-level R entry point for the empirical workflow
+
+- Repository root
+  - `main.py`: top-level Python entry point for the full simulation workflow
+  - `SOM_Empirical_Results.Rmd`: main supplemental empirical-results document
 
 - `config/`
   - Project configuration, including data and output locations
@@ -60,7 +63,7 @@ These notebooks explain the derivations, the mapping to phase-transition mathema
 From the repository root:
 
 ```bash
-python3 Python_code/main.py
+python3 main.py
 ```
 
 This generates the main simulation outputs and figures under `Python_code/Figs_psychopathology/`.

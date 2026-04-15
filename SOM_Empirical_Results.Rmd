@@ -1,7 +1,7 @@
 ---
 title: "Supplemental Online Material (SOM): Empirical Results Based on Cross-Cohort Analyses"
 author: "Dr Dimitris I. Tsomokos (University College London)"
-date: "14 April 2025"
+date: "15 April 2025"
 output:
   html_document:
     toc: true
@@ -118,6 +118,14 @@ mcs_obj <- readRDS("outputs/derived/mcs_analysis_objects.rds")
 main_abcd_sessions <- c("ses-00A", "ses-01A", "ses-02A", "ses-03A", "ses-04A", "ses-05A")
 abcd_main_wave <- abcd_wave %>% filter(wave %in% main_abcd_sessions)
 
+mcs_precision_label <- "Executive-control primary proxy"
+abcd_precision_label <- "Cognitive-control primary proxy"
+mcs_precision_model_label <- "Executive-control model"
+abcd_precision_model_label <- "Cognitive-control model"
+abcd_positive_affect_reliability <- abcd_reliability %>%
+  filter(composite == "Positive-affect balance denominator") %>%
+  slice(1)
+
 fmt_p <- function(x) {
   case_when(
     is.na(x) ~ "",
@@ -152,11 +160,11 @@ sample_flow_plot <- function(df, title, ylab) {
     )
 }
 
-pretty_component <- function(x) {
+pretty_component <- function(x, precision_label = mcs_precision_label) {
   recode(
     x,
     field_index = "Motivation/engagement composite",
-    precision_index = "Executive-control primary proxy",
+    precision_index = precision_label,
     family_conflict = "family conflict",
     sleep_risk = "sleep-risk composite",
     peer_school_trouble = "peer-related school trouble",
@@ -198,17 +206,21 @@ pretty_outcome <- function(x) {
   )
 }
 
-pretty_term <- function(term) {
+pretty_term <- function(term, precision_label = mcs_precision_label) {
   map_chr(term, function(x) {
     if (!str_detect(x, ":")) {
-      return(pretty_component(x))
+      return(pretty_component(x, precision_label = precision_label))
     }
     parts <- str_split(x, ":", simplify = TRUE)
-    paste(pretty_component(parts[1]), "x", pretty_component(parts[2]))
+    paste(
+      pretty_component(parts[1], precision_label = precision_label),
+      "x",
+      pretty_component(parts[2], precision_label = precision_label)
+    )
   })
 }
 
-pretty_covariate <- function(x) {
+pretty_covariate <- function(x, precision_label = mcs_precision_label) {
   recode(
     x,
     `(Intercept)` = "Intercept",
@@ -223,7 +235,7 @@ pretty_covariate <- function(x) {
     parent_education_z = "Parent education",
     neighborhood_risk_z = "Area deprivation",
     field_index = "Motivation/engagement composite",
-    precision_index = "Executive-control primary proxy",
+    precision_index = precision_label,
     family_conflict = "Family conflict",
     sleep_risk = "Sleep-risk composite",
     peer_school_trouble = "Peer-related school trouble",
@@ -246,7 +258,7 @@ pretty_covariate <- function(x) {
   )
 }
 
-pretty_full_term <- function(term) {
+pretty_full_term <- function(term, precision_label = mcs_precision_label) {
   map_chr(term, function(x) {
     if (str_detect(x, "^site")) {
       return("Assessment site")
@@ -258,14 +270,18 @@ pretty_full_term <- function(term) {
       return(str_replace(x, "^pc", "Ancestry PC "))
     }
     if (!str_detect(x, ":")) {
-      return(pretty_covariate(x))
+      return(pretty_covariate(x, precision_label = precision_label))
     }
     parts <- str_split(x, ":", simplify = TRUE)
-    paste(pretty_covariate(parts[1]), "x", pretty_covariate(parts[2]))
+    paste(
+      pretty_covariate(parts[1], precision_label = precision_label),
+      "x",
+      pretty_covariate(parts[2], precision_label = precision_label)
+    )
   })
 }
 
-pretty_model <- function(x) {
+pretty_model <- function(x, precision_model_label = mcs_precision_model_label) {
   recode(
     x,
     combined = "Combined model",
@@ -273,7 +289,7 @@ pretty_model <- function(x) {
     combined_fiml = "Combined model (FIML)",
     base = "Base model",
     field = "Motivation/engagement model",
-    precision = "Executive-control model",
+    precision = precision_model_label,
     mcs_family_conflict = "Family conflict moderation",
     mcs_sleep_risk = "Sleep moderation",
     mcs_peer_school_trouble = "Peer-school moderation",
@@ -297,14 +313,14 @@ pretty_model <- function(x) {
   )
 }
 
-full_results_table <- function(df, model_label = NULL, height = "420px", caption = NULL) {
+full_results_table <- function(df, model_label = NULL, height = "420px", caption = NULL, precision_label = mcs_precision_label, precision_model_label = mcs_precision_model_label) {
   out <- df
   if (!is.null(model_label) && "model" %in% names(out)) {
     out <- out %>% filter(model == model_label)
   }
   out %>%
     mutate(
-      term = pretty_full_term(term),
+      term = pretty_full_term(term, precision_label = precision_label),
       `95% CI` = if_else(
         is.na(conf_low) | is.na(conf_high),
         "",
@@ -314,7 +330,7 @@ full_results_table <- function(df, model_label = NULL, height = "420px", caption
     ) %>%
     transmute(
       Outcome = pretty_outcome(outcome),
-      Model = pretty_model(model),
+      Model = pretty_model(model, precision_model_label = precision_model_label),
       N = nobs,
       Missingness = missingness_handling,
       Term = term,
@@ -338,7 +354,7 @@ overview_variable_table <- bind_rows(
 abcd_combined <- abcd_coefs %>%
   filter(model == "combined", term %in% c("field_index", "precision_index")) %>%
   mutate(
-    predictor_family = recode(term, field_index = "Motivation/engagement", precision_index = "Executive-control primary proxy"),
+    predictor_family = recode(term, field_index = "Motivation/engagement", precision_index = abcd_precision_label),
     p_value = vapply(p_value, fmt_p, character(1))
   ) %>%
   select(predictor_family, estimate, std_error, statistic, p_value, nobs, missingness_handling)
@@ -346,7 +362,7 @@ abcd_combined <- abcd_coefs %>%
 mcs_combined <- mcs_coefs %>%
   filter(model == "combined", term %in% c("field_index", "precision_index")) %>%
   mutate(
-    predictor_family = recode(term, field_index = "Motivation/engagement", precision_index = "Executive-control primary proxy"),
+    predictor_family = recode(term, field_index = "Motivation/engagement", precision_index = abcd_precision_label),
     p_value = vapply(p_value, fmt_p, character(1))
   ) %>%
   select(predictor_family, estimate, std_error, statistic, p_value, nobs, missingness_handling)
@@ -363,7 +379,7 @@ mcs_sensitivity_table <- mcs_sensitivity_coefs %>%
   filter(term %in% c("field_index", "precision_index")) %>%
   transmute(
     outcome = pretty_outcome(outcome),
-    predictor_family = recode(term, field_index = "Motivation/engagement", precision_index = "Executive-control primary proxy"),
+    predictor_family = recode(term, field_index = "Motivation/engagement", precision_index = abcd_precision_label),
     estimate,
     std_error,
     statistic,
@@ -386,7 +402,7 @@ abcd_sensitivity_table <- abcd_sensitivity_coefs %>%
   filter(term %in% c("field_index", "precision_index")) %>%
   transmute(
     outcome = pretty_outcome(outcome),
-    predictor_family = recode(term, field_index = "Motivation/engagement", precision_index = "Executive-control primary proxy"),
+    predictor_family = recode(term, field_index = "Motivation/engagement", precision_index = abcd_precision_label),
     estimate,
     std_error,
     statistic,
@@ -530,7 +546,7 @@ The project's Notebooks translate that idea into a specific empirical claim. Not
 
 Therefore, the **central empirical question** is: *after accounting for baseline mental health problems and standard covariates, are later internalising and disengagement-related outcomes predicted more strongly by earlier motivation or engagement than by earlier executive-control competencies*?
 
-Throughout the supplement, `motivation/engagement` is used as the observational counterpart of the theoretical `preference field`: how worthwhile participation in ordinary life still feels. `Executive-control` is used as the observational counterpart of `policy precision`: how consistently action can be selected and carried through once engagement is attempted. 
+Throughout the supplement, `motivation/engagement` is used as the observational counterpart of the theoretical `preference field`: how worthwhile participation in ordinary life still feels. The corresponding control-related proxy is described as `executive-control` in the MCS analyses and as `cognitive-control` in the ABCD analyses, matching the local measurement framing while retaining the same link to `policy precision`: how consistently action can be selected and carried through once engagement is attempted. 
 (NOTE! These analyses do not estimate the latent active-inference quantities directly. They test whether the broad longitudinal ordering seen in MCS and ABCD is more consistent with a field-dominated than a precision-dominated developmental architecture.)
 
 ## Theoretical companion notebooks
@@ -559,12 +575,14 @@ The supplement uses cohort-specific operationalisation rather than forcing artif
 
 ```{r overview-variable-table}
 overview_variable_table %>%
-  mutate(category = recode(category,
-    outcome = "Outcome",
-    field_like = "Motivation/engagement",
-    precision_like = "Executive-control",
-    context = "Context",
-    prs = "Genetic score"
+  mutate(category = case_when(
+    category == "outcome" ~ "Outcome",
+    category == "field_like" ~ "Motivation/engagement",
+    category == "precision_like" & cohort == "ABCD" ~ "Cognitive-control",
+    category == "precision_like" ~ "Executive-control",
+    category == "context" ~ "Context",
+    category == "prs" ~ "Genetic score",
+    TRUE ~ category
   )) %>%
   scroll_apa_table(caption = "Overview of the main construct families used across MCS and ABCD.", digits = 2)
 ```
@@ -678,7 +696,7 @@ abcd_mapping %>%
 
 <br /> 
 
-For ABCD, the primary motivation/engagement composite uses school environment, school involvement, and reverse-scored school disengagement because this school-participation cluster showed the clearest and most coherent fit to the theory's field-like construct at the chosen baseline session. BAS indicators remain available in the dataset and are retained for secondary analyses such as the balance-index work, but they were not retained in the final primary field composite. (As in MCS, this is a theory-led proxy rather than an exhaustive measure of positive functioning, and its emphasis is on approach valuation and participation rather than on general wellbeing.)
+For ABCD, the primary motivation/engagement composite uses school environment, school involvement, and reverse-scored school disengagement because this school-participation cluster showed the clearest and most coherent fit to the theory's field-like construct at the chosen baseline session. A separate youth positive-affect scale is retained for the age-13 balance-index analysis, but it was not retained in the final primary field composite. (As in MCS, this is a theory-led proxy rather than an exhaustive measure of positive functioning, and its emphasis is on approach valuation and participation rather than on general wellbeing.)
 
 ```{r abcd-reliability}
 abcd_reliability %>%
@@ -694,7 +712,7 @@ abcd_reliability %>%
   apa_table(caption = "Internal-consistency estimates for the ABCD composite scales used at the baseline session of the main lagged analyses. Alpha is standardised Cronbach's alpha and omega is McDonald's omega total, both computed on the oriented item sets used to construct the composites.", digits = 3)
 ```
 
-For ABCD, the primary executive-control variable is the `ses-02A` NIH Toolbox Flanker score. Internal-consistency coefficients are not applicable to that single-indicator proxy, and the broader multi-item baseline executive-control set was not retained because `reverse_bdefs_total` is unavailable at `ses-02A` and overlap among the other candidate NIH Toolbox indicators is too sparse for a defensible composite.
+For ABCD, the primary cognitive-control variable is the `ses-02A` NIH Toolbox Flanker score. Internal-consistency coefficients are not applicable to that single-indicator proxy, and the broader multi-item baseline cognitive-control set was not retained because `reverse_bdefs_total` is unavailable at `ses-02A` and overlap among the other candidate NIH Toolbox indicators is too sparse for a defensible composite.
 
 ## Model comparison framework
 
@@ -702,10 +720,10 @@ The main prospective test is nested. In each cohort we fit:
 
 - a baseline model with prior distress and core covariates;
 - a baseline-plus-motivation/engagement model;
-- a baseline-plus-executive-control model;
+- a baseline-plus-control-proxy model (`executive-control` in MCS; `cognitive-control` in ABCD);
 - a combined model containing both predictor families.
 
-If motivation/engagement truly carries the larger developmental signal, it should improve model fit more consistently, retain the larger combined-model coefficient, and that coefficient should be significantly larger than the executive-control coefficient in a direct within-model comparison.
+If motivation/engagement truly carries the larger developmental signal, it should improve model fit more consistently, retain the larger combined-model coefficient, and that coefficient should be significantly larger than the paired control-proxy coefficient in a direct within-model comparison.
 
 ```{r model-compare}
 model_compare %>%
@@ -818,7 +836,7 @@ As a missing-data sensitivity analysis for the primary MCS finding, the same com
 mcs_mi_coefs %>%
   filter(term %in% c("field_index", "precision_index")) %>%
   mutate(
-    predictor_family = recode(term, field_index = "Motivation/engagement", precision_index = "Executive-control primary proxy"),
+    predictor_family = recode(term, field_index = "Motivation/engagement", precision_index = abcd_precision_label),
     p_value = vapply(p_value, fmt_p, character(1))
   ) %>%
   select(predictor_family, estimate, std_error, statistic, p_value, nobs, missingness_handling) %>%
@@ -997,7 +1015,7 @@ The MCS analyses ask whether age-14 motivation/engagement or age-14 executive-co
 
 ## ABCD sample and measurement focus
 
-The ABCD analyses centre on parent-reported CBCL internalising and withdrawn or depressed symptoms as the most defensible longitudinal outcome. Motivation/engagement is indexed primarily by school environment, school involvement, and school disengagement. Executive-control is indexed primarily by the NIH Toolbox Flanker score at `ses-02A`. For the balance-index analyses (see below), parent-reported CBCL stress (`mh_p_cbcl__strs_sum`) is paired with youth-reported BAS Drive (`mh_y_bisbas__bas__dr_sum`) to construct a theory-derived distress-to-motivation ratio.
+The ABCD analyses centre on parent-reported CBCL internalising and withdrawn or depressed symptoms as the most defensible longitudinal outcome. Motivation/engagement is indexed primarily by school environment, school involvement, and school disengagement. Cognitive-control is indexed primarily by the NIH Toolbox Flanker score at `ses-02A`. For the balance-index analyses (see below), age-13 parent-reported CBCL stress (`mh_p_cbcl__strs_sum` at `ses-03A`) is paired with the age-13 youth-reported NIH Toolbox Positive Affect Items sum score (`mh_y_pai_sum`) to construct a theory-derived distress-to-positive-affect ratio.
 
 For sleep, the current analysis uses two repeated and clinically interpretable measures from the Munich Chronotype Questionnaire: sleep duration and social jetlag. They were chosen because they capture two distinct and relevant features of adolescent sleep risk, namely insufficient sleep and circadian misalignment, and because they are available repeatedly in the local extract. The current sleep-risk composite therefore represents shorter sleep together with greater social jetlag.
 
@@ -1026,20 +1044,20 @@ abcd_main_wave %>%
   apa_table(caption = "ABCD wave-level descriptive summary for CBCL internalising T-scores through age 15.", digits = 2)
 ```
 
-## Motivation/engagement versus executive-control comparison
+## Motivation/engagement versus cognitive-control comparison
 
-This primary ABCD comparison uses `ses-02A` motivation/engagement and executive-control predictors, `ses-05A` parent-reported internalising as the outcome, and `ses-02A` covariates. The covariates entered are `ses-02A` internalising, age, sex, household income, parent education, area deprivation index percentile, and site.
+This primary ABCD comparison uses `ses-02A` motivation/engagement and cognitive-control predictors, `ses-05A` parent-reported internalising as the outcome, and `ses-02A` covariates. The covariates entered are `ses-02A` internalising, age, sex, household income, parent education, area deprivation index percentile, and site.
 
 The fitted model is an ordinary least-squares `lm` with a standardised `ses-05A` internalising outcome. All substantive continuous predictors and covariates are z-scored at `ses-02A`, so `B` and `Std. b` are the same for those terms. Site enters as a nominal factor, so its contrast rows are shown on the same standardised outcome scale rather than as a fully standardised beta; the intercept alone remains unstandardised.
 
-```{r abcd-comparison-figure, fig.cap="ABCD combined-model coefficients for the motivation/engagement and executive-control predictor families, with age-12 predictors and age-15 internalising as the outcome."}
+```{r abcd-comparison-figure, fig.cap="ABCD combined-model coefficients for the motivation/engagement and cognitive-control predictor families, with age-12 predictors and age-15 internalising as the outcome."}
 knitr::include_graphics("outputs/figures/abcd_field_vs_precision.png")
 ```
 
 ```{r abcd-comparison-table}
 abcd_combined %>%
   rename(N = nobs, Missingness = missingness_handling) %>%
-  apa_table(caption = "ABCD combined lagged model comparing motivation/engagement and executive-control predictors, with model N and missingness handling shown explicitly.", digits = 3)
+  apa_table(caption = "ABCD combined lagged model comparing motivation/engagement and cognitive-control predictors, with model N and missingness handling shown explicitly.", digits = 3)
 ```
 
 ```{r abcd-comparison-test}
@@ -1050,7 +1068,7 @@ abcd_tests %>%
   ) %>%
   select(outcome, estimate_difference, std_error, statistic, p_value, nobs, missingness_handling) %>%
   rename(N = nobs, Missingness = missingness_handling) %>%
-  apa_table(caption = "Direct coefficient-comparison test for the ABCD combined model. Negative values indicate that the motivation/engagement coefficient is more negative than the executive-control coefficient.", digits = 3)
+  apa_table(caption = "Direct coefficient-comparison test for the ABCD combined model. Negative values indicate that the motivation/engagement coefficient is more negative than the cognitive-control coefficient.", digits = 3)
 ```
 
 In the combined ABCD model, both predictor families contribute, and the motivation/engagement composite has the larger coefficient magnitude. With the expanded standard adjustment in place, the direct coefficient-comparison test is also conventionally significant in this cohort. Therefore, the ABCD cohort also supports the central ordering claim.
@@ -1063,13 +1081,15 @@ The full combined ABCD model below includes `ses-02A` predictors and `ses-02A` c
 full_results_table(
   abcd_coefs %>% filter(model == "combined"),
   height = "420px",
-  caption = "Full ABCD combined model: `ses-02A` predictors and covariates to `ses-05A` parent-reported internalising."
+  caption = "Full ABCD combined model: `ses-02A` predictors and covariates to `ses-05A` parent-reported internalising.",
+  precision_label = abcd_precision_label,
+  precision_model_label = abcd_precision_model_label
 )
 ```
 
-## ABCD precision-proxy operationalisation sensitivity
+## ABCD cognitive-control-proxy operationalisation sensitivity
 
-The primary ABCD executive-control proxy is the `ses-02A` NIH Toolbox Flanker score (`nc_y_nihtb__flnkr__fullcor_tscore`). Two alternative NIH Toolbox indicators with adequate `ses-02A` coverage were evaluated as operationalisation sensitivities: the Pattern Comparison Processing Speed Task (`nc_y_nihtb__pttcp__fullcor_tscore`; *n* ≈ 8,000 valid at `ses-02A`) and the Crystallized composite score (`nc_y_nihtb__comp__cryst__fullcorr_tscore`; *n* ≈ 7,300 valid at `ses-02A`). Card Sort flexibility and List Sorting working memory, previously used as candidate sensitivities, were discontinued because they had only 5 and 14 valid cases respectively at `ses-02A` and cannot support a fully adjusted model.
+The primary ABCD cognitive-control proxy is the `ses-02A` NIH Toolbox Flanker score (`nc_y_nihtb__flnkr__fullcor_tscore`). Two alternative NIH Toolbox indicators with adequate `ses-02A` coverage were evaluated as operationalisation sensitivities: the Pattern Comparison Processing Speed Task (`nc_y_nihtb__pttcp__fullcor_tscore`; *n* ≈ 8,000 valid at `ses-02A`) and the Crystallized composite score (`nc_y_nihtb__comp__cryst__fullcorr_tscore`; *n* ≈ 7,300 valid at `ses-02A`). Card Sort flexibility and List Sorting working memory, previously used as candidate sensitivities, were discontinued because they had only 5 and 14 valid cases respectively at `ses-02A` and cannot support a fully adjusted model.
 
 ```{r abcd-precision-proxy-sensitivity}
 abcd_precision_proxy_table %>%
@@ -1081,7 +1101,7 @@ abcd_precision_proxy_table %>%
     caption = paste0(
       "ABCD precision-proxy operationalisation sensitivity checks for the primary `ses-02A` to `ses-05A` model. ",
       "Alternatives are Pattern Comparison Processing Speed and the Crystallized composite, both with adequate `ses-02A` coverage. ",
-      "Coefficient-comparison p values test whether the motivation/engagement coefficient differs from the alternative precision coefficient within the same combined model."
+      "Coefficient-comparison p values test whether the motivation/engagement coefficient differs from the alternative cognitive-control coefficient within the same combined model."
     ),
     digits = 3
   )
@@ -1095,7 +1115,7 @@ As a missing-data sensitivity analysis for the primary ABCD finding, the same co
 abcd_fiml_coefs %>%
   filter(term %in% c("field_index", "precision_index")) %>%
   mutate(
-    predictor_family = recode(term, field_index = "Motivation/engagement", precision_index = "Executive-control primary proxy"),
+    predictor_family = recode(term, field_index = "Motivation/engagement", precision_index = abcd_precision_label),
     p_value = vapply(p_value, fmt_p, character(1))
   ) %>%
   select(predictor_family, estimate, std_error, statistic, p_value, nobs, missingness_handling) %>%
@@ -1137,7 +1157,7 @@ abcd_no_parented_coefs %>%
   mutate(
     predictor_family = recode(term,
       field_index     = "Motivation/engagement",
-      precision_index = "Executive-control primary proxy"
+      precision_index = abcd_precision_label
     ),
     p_value = vapply(p_value, fmt_p, character(1))
   ) %>%
@@ -1155,10 +1175,10 @@ abcd_no_parented_test %>%
     outcome = pretty_outcome(outcome),
     p_value = vapply(p_value, fmt_p, character(1))
   ) %>%
-  select(outcome, estimate_difference, std_error, statistic, p_value, nobs, missingness_handling) %>%
-  rename(N = nobs, Missingness = missingness_handling) %>%
+  select(outcome, estimate_difference, std_error, statistic, p_value, missingness_handling) %>%
+  rename(Missingness = missingness_handling) %>%
   apa_table(
-    caption = "Direct coefficient-comparison test for the ABCD MCS-parity sensitivity model (no parent education). Negative values indicate that the motivation/engagement coefficient is more negative than the executive-control coefficient.",
+    caption = "Direct coefficient-comparison test for the ABCD MCS-parity sensitivity model (no parent education). Negative values indicate that the motivation/engagement coefficient is more negative than the cognitive-control coefficient.",
     digits = 3
   )
 ```
@@ -1167,7 +1187,7 @@ Removing parent education from the adjustment set has no meaningful effect on ei
 
 ## ABCD context moderation
 
-These moderation models retain the same `ses-02A` predictor wave and the same `ses-02A` adjustment set as the main ABCD model. Each moderator is therefore evaluated as a baseline contextual influence on the path from `ses-02A` motivation/engagement or executive-control to `ses-05A` internalising.
+These moderation models retain the same `ses-02A` predictor wave and the same `ses-02A` adjustment set as the main ABCD model. Each moderator is therefore evaluated as a baseline contextual influence on the path from `ses-02A` motivation/engagement or cognitive-control to `ses-05A` internalising.
 
 These are ordinary least-squares `lm` interaction models with the same standardised `ses-05A` outcome and the same `ses-02A` z-scored covariate set as the main ABCD analysis.
 
@@ -1193,7 +1213,9 @@ Each full ABCD moderation model below uses `ses-02A` predictors, a `ses-02A` mod
 full_results_table(
   abcd_context_full,
   height = "440px",
-  caption = "Full ABCD context-moderation models: `ses-02A` predictors and covariates to `ses-05A` parent-reported internalising."
+  caption = "Full ABCD context-moderation models: `ses-02A` predictors and covariates to `ses-05A` parent-reported internalising.",
+  precision_label = abcd_precision_label,
+  precision_model_label = abcd_precision_model_label
 )
 ```
 
@@ -1211,7 +1233,7 @@ abcd_sensitivity_table %>%
     `Coefficient-test N` = coefficient_test_n,
     `Coefficient-test missingness` = coefficient_test_missingness
   ) %>%
-  apa_table(caption = "ABCD sensitivity analyses using youth-reported Brief Problem Monitor internalising and attention outcomes. Coefficient-comparison p values test whether the motivation/engagement coefficient differs from the executive-control coefficient within the same combined model.", digits = 3)
+  apa_table(caption = "ABCD sensitivity analyses using youth-reported Brief Problem Monitor internalising and attention outcomes. Coefficient-comparison p values test whether the motivation/engagement coefficient differs from the cognitive-control coefficient within the same combined model.", digits = 3)
 ```
 
 These sensitivity analyses are useful because they test whether the ordering of predictor families is limited to one reporter and one symptom frame. In this pass, the youth BPM internalising outcome shows the same ordering clearly, whereas the youth BPM attention outcome remains more tentative. They therefore complement the parent-report results rather than replacing them.
@@ -1224,21 +1246,23 @@ These full sensitivity models use the same `ses-02A` predictor wave and `ses-02A
 full_results_table(
   abcd_sensitivity_full,
   height = "440px",
-  caption = "Full ABCD sensitivity models using youth-reported BPM outcomes at `ses-05A`."
+  caption = "Full ABCD sensitivity models using youth-reported BPM outcomes at `ses-05A`.",
+  precision_label = abcd_precision_label,
+  precision_model_label = abcd_precision_model_label
 )
 ```
 
 ## ABCD balance-index analyses
 
-This section tests the same Notebook 03 prediction in the ABCD cohort. Here the balance index is constructed as $\psi = \log(\text{CBCL stress} / \text{BAS Drive})$, using `ses-02A` parent-reported CBCL stress (`mh_p_cbcl__strs_sum`) as the distress-related component and `ses-02A` youth-reported BAS Drive (`mh_y_bisbas__bas__dr_sum`) as the motivation-related component. Two binary outcomes are then examined. The first is transition into probable internalising caseness, operationalised as `ses-05A` CBCL internalising `T >= 64` among adolescents below that threshold at `ses-02A`. The second is youth-reported depression-related functional impairment at `ses-04A` from the KSADS depression module (`mh_y_ksads__dep__impfunct__pres_sx`), coded as 1 when impairment is endorsed and 0 otherwise, including the branch-coded non-depressed group.
+This section tests the same Notebook 03 prediction in the ABCD cohort using the focal age-13 balance specification. Here the balance index is constructed as $\psi = \log(\text{CBCL stress} / \text{Positive affect})$, using `ses-03A` parent-reported CBCL stress (`mh_p_cbcl__strs_sum`) as the distress-related component and the `ses-03A` youth-reported NIH Toolbox Positive Affect Items sum score (`mh_y_pai_sum`) as the protective denominator. The retained binary outcome is transition into probable internalising caseness, operationalised as `ses-05A` CBCL internalising `T >= 64` among adolescents below that threshold at `ses-03A`.
 
-The pairing of CBCL stress (a parent-reported measure of the child's distress and stress reactivity) with BAS Drive (a youth-reported measure of approach motivation) is not identical to the MCS pairing of Kessler distress with WEMWBS wellbeing, but it captures the same theoretical structure: the ratio of an avoidance-related observable to an approach-related observable, which the theory identifies as the relevant phase-space coordinate. The fitted models are ordinary logistic `glm` models with the same `ses-02A` demographic and socioeconomic covariates as the main ABCD analysis, and both retained models also adjust for baseline internalising severity to keep the comparison anchored to prior symptom burden. The internalising-caseness model additionally restricts the baseline sample to adolescents below the threshold so the focus stays on transition rather than cross-sectional severity alone.
+The positive-affect denominator follows the ABCD scoring documentation: `mh_y_pai_sum` is the complete-case sum of nine youth-report items (`mh_y_pai_001` to `mh_y_pai_009`) with `777` and `999` excluded. In the local `ses-03A` data that denominator showed good internal consistency (alpha = `r sprintf('%.2f', abcd_positive_affect_reliability$alpha_std[[1]])`, omega = `r sprintf('%.2f', abcd_positive_affect_reliability$omega_total[[1]])`). The pairing of CBCL stress (a parent-reported measure of the child's distress and stress reactivity) with positive affect (a youth-reported measure of positive emotional state) is not identical to the MCS pairing of Kessler distress with WEMWBS wellbeing, but it preserves the same theoretical structure: the ratio of an avoidance-related observable to a protective or appetitive observable, which the theory identifies as the relevant phase-space coordinate. The fitted models are ordinary logistic `glm` models with the same `ses-03A` demographic and socioeconomic covariates as the main ABCD analysis, and all retained models also adjust for baseline internalising severity to keep the comparison anchored to prior symptom burden. The model additionally restricts the baseline sample to adolescents below the threshold so the focus stays on transition rather than cross-sectional severity alone.
 
 ### Descriptive summary
 
 ```{r abcd-balance-desc}
 abcd_balance_desc %>%
-  apa_table(caption = "Descriptive statistics for the ABCD balance index psi = log(CBCL stress / BAS Drive) at ses-02A, shown separately for the two retained binary outcomes.", digits = 3)
+  apa_table(caption = "Descriptive statistics for the ABCD balance index psi = log(CBCL stress / youth positive affect) at ses-03A for later probable internalising caseness.", digits = 3)
 ```
 
 ### Balance-index model comparison
@@ -1249,9 +1273,9 @@ abcd_balance_comp %>%
     outcome = pretty_outcome(outcome),
     predictor = recode(
       predictor,
-      stress_z = "Baseline stress",
-      motivation_z = "Baseline BAS Drive",
-      psi_z = "Baseline balance index"
+      stress_z = "Age-13 stress",
+      positive_affect_z = "Age-13 positive affect",
+      psi_z = "Age-13 balance index"
     ),
     `95% CI (OR)` = paste0("[", sprintf("%.2f", or_conf_low), ", ", sprintf("%.2f", or_conf_high), "]"),
     p_value = vapply(p_value, fmt_p, character(1))
@@ -1259,7 +1283,7 @@ abcd_balance_comp %>%
   select(outcome, model, predictor, odds_ratio, `95% CI (OR)`, statistic, p_value, auc, brier, aic, nobs, missingness_handling) %>%
   rename(N = nobs, Missingness = missingness_handling) %>%
   scroll_apa_table(
-    caption = "ABCD logistic balance-index comparison across the retained binary outcomes, with AUC, Brier score, and AIC.",
+    caption = "ABCD logistic balance-index comparison for later probable internalising caseness, with AUC, Brier score, and AIC.",
     height = "340px"
   )
 ```
@@ -1270,15 +1294,15 @@ abcd_balance_comp %>%
 abcd_balance_aic %>%
   mutate(outcome = pretty_outcome(outcome)) %>%
   rename(N = nobs, Missingness = missingness_handling) %>%
-  apa_table(caption = "ABCD fit comparison across the three single-predictor logistic balance-index models for the retained binary outcomes.", digits = 2)
+  apa_table(caption = "ABCD fit comparison across the three single-predictor logistic balance-index models for later probable internalising caseness.", digits = 2)
 ```
 
-In the current ABCD window, the two retained outcomes behave differently, but with a common pattern. For later probable internalising caseness, baseline stress alone still fits slightly better than the balance index. For youth-reported depression-related functional impairment at `ses-04A`, the balance index is statistically informative and performs better than motivation alone, but stress alone still gives the best overall fit. The ratio therefore does not dominate in ABCD, yet it looks more credible in the depression-focused analysis than when paired with the broader internalising-threshold outcome.
+In the focal ABCD balance analysis, the pattern is clean and supportive. For later probable internalising caseness, the age-13 balance index performs best of the three single-predictor models, with the lowest AIC and the highest AUC, outperforming both stress alone and positive affect alone. That places the ABCD result in the same qualitative direction as the MCS result: in both cohorts, the log-ratio carries transition-relevant information that neither component captures quite as efficiently on its own.
 
 ## Summary
 
 ::: {.summary-box}
-The ABCD analyses test whether the same ordering of predictor families appears in an independent cohort with different measures. The main models use `ses-02A` predictors and covariates with `ses-05A` outcomes, and with that adjustment set the direct coefficient-comparison test now supports the ordering claim in the main parent-report model. Sleep remains the clearest contextual moderator of that pathway, and the BPM sensitivity analyses provide an additional youth-report check, with clearer support for BPM internalising than for BPM attention. The balance-index analyses test whether $\psi = \log(\text{CBCL stress} / \text{BAS Drive})$ at `ses-02A` adds transition-relevant information for both later probable internalising caseness by `ses-05A` and youth-reported depression-related functional impairment at `ses-04A`, even though stress alone still fits slightly better in both analyses.
+The ABCD analyses test whether the same ordering of predictor families appears in an independent cohort with different measures. The main models use `ses-02A` predictors and covariates with `ses-05A` outcomes, and with that adjustment set the direct coefficient-comparison test now supports the ordering claim in the main parent-report model. Sleep remains the clearest contextual moderator of that pathway, and the BPM sensitivity analyses provide an additional youth-report check, with clearer support for BPM internalising than for BPM attention. The focal balance-index analysis then shows that the age-13 ratio $\psi = \log(\text{CBCL stress}_{\text{ses-03A}} / \text{Positive affect}_{\text{ses-03A}})$ performs best for later probable internalising caseness by `ses-05A`, supporting the balance-index prediction in ABCD as well as in MCS.
 :::
 
 # Cross-Cohort Synthesis
@@ -1290,9 +1314,9 @@ claim_summary %>%
   apa_table(caption = "Cross-cohort summary of the main theory-relevant claims.", digits = 2)
 ```
 
-**The strongest cross-cohort pattern is convergent in both cohorts.** MCS supports the ordering in which age-14 motivation and engagement are more central than age-14 executive-control for later distress after adjustment for age-14 demographic and socioeconomic covariates, and ABCD now does the same after adjustment for baseline demographic, socioeconomic, neighbourhood, and site covariates in the main parent-report model.
+**The strongest cross-cohort pattern is convergent in both cohorts.** MCS supports the ordering in which age-14 motivation and engagement are more central than age-14 executive-control for later distress after adjustment for age-14 demographic and socioeconomic covariates, and ABCD now does the same for age-12 cognitive-control after adjustment for baseline demographic, socioeconomic, neighbourhood, and site covariates in the main parent-report model.
 
-A short interpretive point is important for the balance indices. These ratios should not be treated as universal superior predictors of all later outcomes. The current results are better read as evidence that ratio-type measures may be especially informative when the endpoint is closer to depressive phase-position or depressive impairment, because they compress two opposing components into a single phase-position proxy. Their usefulness should therefore be tested rather than assumed in each cohort.
+A short interpretive point is important for the balance indices. These ratios should not be treated as universal superior predictors of all later outcomes. The current results are better read as evidence that ratio-type measures can carry transition-relevant information when the endpoint is clinically proximate and the numerator and denominator are measured in a defensible developmental window. Their usefulness should therefore be tested rather than assumed in each cohort.
 
 ## Interpretation and limits
 
@@ -1302,12 +1326,12 @@ This convergence is meaningful, but NOTE THE FOLLOWING!
 - The outcomes are developmental distress proxies, not formal state-transition observables.
 - The motivation/engagement versus executive-control comparison is a theory-guided ordering test, not a claim that one domain matters and the other does not.
 - The MCS balance-index analyses use age-17 predictors for age-23 depressive outcomes, which is a different analytical window from the main age-14-to-age-17 models. The two sets of analyses test different but complementary predictions.
-- The ABCD balance-index analyses pair a parent-reported stress measure with a youth-reported motivation measure — a cross-informant ratio whose psychometric properties are not yet established independently of this study, even though the added depression-impairment outcome is clinically appealing.
+- The ABCD balance-index analysis pairs a parent-reported stress measure with a youth-reported positive-affect denominator, so this cross-informant ratio still needs independent psychometric evaluation.
 
 ## Summary
 
 ::: {.summary-box}
-Across MCS and ABCD, the study provides indirect observational support for the narrower claim that motivation/engagement-related processes may be more central than executive-control-related processes in persistence and recovery-relevant developmental pathways. The models make their adjustment sets explicit and retain the same broad conclusion after standard demographic and socioeconomic covariate adjustment. That support remains strongest and most extensive in the survey-weighted MCS analyses, but it is also statistically supported in the main adjusted ABCD model. The balance-index analyses provide a further, theory-derived test: whether log-ratio measures constructed from distress and wellbeing (or stress and motivation) components carry additional transition-relevant information for depressive-type outcomes beyond either component alone.
+Across MCS and ABCD, the study provides indirect observational support for the narrower claim that motivation/engagement-related processes may be more central than executive-control-related processes in MCS and cognitive-control-related processes in ABCD for persistence- and recovery-relevant developmental pathways. The models make their adjustment sets explicit and retain the same broad conclusion after standard demographic and socioeconomic covariate adjustment. That support remains strongest and most extensive in the survey-weighted MCS analyses, but it is also statistically supported in the main adjusted ABCD model. The balance-index analyses provide a further, theory-derived test: whether log-ratio measures constructed from distress and wellbeing in MCS, and from stress and positive affect in ABCD, carry additional transition-relevant information for later clinically relevant outcomes beyond either component alone.
 :::
 
 # Appendix A: STROBE Checklist {-}

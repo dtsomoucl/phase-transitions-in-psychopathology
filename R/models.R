@@ -1314,6 +1314,12 @@ make_trajectory_plot <- function(data, wave_var, outcome_var, cohort, title) {
 }
 
 comparison_plot_df <- function(results_df, cohort_label) {
+  precision_label <- if (cohort_label %in% c("ABCD", "Adolescent Brain Cognitive Development Study")) {
+    "Cognitive-control\nproxy"
+  } else {
+    "Executive-control\nproxy"
+  }
+
   results_df %>%
     filter(model == "combined", term %in% c("field_index", "precision_index")) %>%
     mutate(
@@ -1321,11 +1327,11 @@ comparison_plot_df <- function(results_df, cohort_label) {
       term = recode(
         term,
         field_index = "Motivation/\nengagement proxy",
-        precision_index = "Executive-control\nproxy"
+        precision_index = precision_label
       ),
       term = factor(
         term,
-        levels = c("Executive-control\nproxy", "Motivation/\nengagement proxy")
+        levels = c(precision_label, "Motivation/\nengagement proxy")
       )
     )
 }
@@ -1343,7 +1349,8 @@ make_comparison_plot <- function(results_df, cohort, title, y_limits = NULL) {
     scale_colour_manual(
       values = c(
         "Motivation/\nengagement proxy" = "#006d77",
-        "Executive-control\nproxy" = "#bb3e03"
+        "Executive-control\nproxy" = "#bb3e03",
+        "Cognitive-control\nproxy" = "#bb3e03"
       )
     ) +
     coord_cartesian(ylim = y_limits) +
@@ -1383,7 +1390,8 @@ make_combined_comparison_plot <- function(abcd_results, mcs_results, y_limits = 
     scale_colour_manual(
       values = c(
         "Motivation/\nengagement proxy" = "#006d77",
-        "Executive-control\nproxy" = "#bb3e03"
+        "Executive-control\nproxy" = "#bb3e03",
+        "Cognitive-control\nproxy" = "#bb3e03"
       )
     ) +
     coord_cartesian(ylim = y_limits) +
@@ -1425,9 +1433,9 @@ build_claim_summary <- function(abcd_results, mcs_results) {
 
   tibble(
     claim_tested = c(
+      "Motivation/engagement variables predict later persistence/worsening more strongly than cognitive-control variables",
       "Motivation/engagement variables predict later persistence/worsening more strongly than executive-control variables",
-      "Motivation/engagement variables predict later persistence/worsening more strongly than executive-control variables",
-      "Context moderates motivation/engagement and/or executive-control pathways",
+      "Context moderates motivation/engagement and/or cognitive-control pathways",
       "Context moderates motivation/engagement and/or executive-control pathways",
       "Genetic scores moderate sensitivity to motivation/engagement or context pathways"
     ),
@@ -1440,7 +1448,7 @@ build_claim_summary <- function(abcd_results, mcs_results) {
       "Survey-weighted svyglm interaction models with depression PRS and cognition PGI plus ancestry PCs to age 17"
     ),
     key_result = c(
-      sprintf("Motivation/engagement beta = %.3f (p = %.3f); executive-control beta = %.3f (p = %.3f); direct coefficient-comparison p = %.3f", abcd_field_beta, abcd_field_p, abcd_precision_beta, abcd_precision_p, abcd_diff_p),
+      sprintf("Motivation/engagement beta = %.3f (p = %.3f); cognitive-control beta = %.3f (p = %.3f); direct coefficient-comparison p = %.3f", abcd_field_beta, abcd_field_p, abcd_precision_beta, abcd_precision_p, abcd_diff_p),
       sprintf("Motivation/engagement beta = %.3f (p = %.3f); executive-control beta = %.3f (p = %.3f); direct coefficient-comparison p = %.3f", mcs_field_beta, mcs_field_p, mcs_precision_beta, mcs_precision_p, mcs_diff_p),
       ifelse(nrow(abcd_results$moderation) > 0, "At least one context interaction was estimable in the local ABCD extract", "Context interactions were limited by local ABCD availability"),
       ifelse(nrow(mcs_results$context_moderation) > 0, "Multiple age-14 context interactions were estimable in MCS", "Context interactions were not stable/estimable"),
