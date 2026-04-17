@@ -214,6 +214,8 @@ The cusp structure generates five empirically testable signatures in any populat
 4. **Hysteresis.** If $\Delta c$ is swept forward and then backward, the transition thresholds differ in the two directions because the agent has accumulated asymmetric evidence.
 5. **Divergence.** Two agents with slightly different initial conditions can end up in qualitatively different behavioural states.
 
+While in this project we do not go deeper into this aspect of the theory, these catastrophe flags have been studied in more detail and we have provided simulations for them in the separate (yet theoretically related) project on "Phase Transitions in Active Inference" (early learning and developmental psychology context); for instance, for simulations details see Notebook 02 of that project: https://github.com/dtsomoucl/phase-transitions-in-active-inference/blob/main/notebooks/Notebook_02_Simulation_Verifying_Bifurcation.md
+
 ---
 
 ## 9. Summary of Key Results
