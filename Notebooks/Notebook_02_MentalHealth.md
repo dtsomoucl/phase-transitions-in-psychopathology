@@ -29,7 +29,7 @@ The two-state model from Notebook 01 is reinterpreted as follows:
 | Order parameter $z$ | Commitment balance: $z > 0$ = engagement-dominated; $z < 0$ = withdrawal-dominated |
 | $P(\pi_1)$ | Latent probability of choosing engagement on a given occasion |
 | Preference asymmetry $\Delta c$ | **Motivational field**: the subjective value the individual places on engagement relative to avoidance. Positive $\Delta c$ means engagement is experienced as more rewarding or meaningful |
-| Policy precision $\gamma$ | **Cognitive self-efficacy / decisiveness**: the degree to which the individual can translate their beliefs into consistent, goal-directed action |
+| Policy precision $\gamma$ | **Cognitive control / decisiveness**: the degree to which the individual can translate their beliefs into consistent, goal-directed action |
 | Coupling function $\mathcal{G}(\tau; p)$ | Strength of the learning–action feedback at a given point in the individual's experience |
 | Environmental discriminability $p$ | Clarity of environmental feedback: how distinguishable the consequences of engagement are from those of withdrawal |
 | Prior strength $\alpha_0$ | Rigidity of pre-existing beliefs about what each behavioural strategy produces |
@@ -98,7 +98,7 @@ This is the **dominance of motivational field** result ("field-dominance" result
 The field-dominance result is not a fragile feature of one parameter setting. The robustness checks (`step2_robustness.py`) confirm that the ordering — $\Delta c$ matters more than $\gamma$ for recovery — holds across:
 
 - Different recovery thresholds ($P(\pi_1) > 0.5, 0.6, 0.7$).
-- Different environmental discriminabilities ($p = 0.75$ to $0.95$).
+- Different environmental discriminabilities ($p = 0.65$ to $0.95$).
 - Different prior strengths ($\alpha_0 = 1$ to $4$).
 
 A cross-regime condition (`ONSET_AS_RECOVERY_REGIME`: onset-level priors $\alpha_0 = 40$ combined with recovery-level drift rates) further confirms the ordering. In every regime tested, the difference in late-window $P(\pi_1)$ between the $\Delta c$-restored and $\gamma$-restored conditions is positive: restoring the field outperforms restoring precision.
@@ -184,11 +184,13 @@ This result resolves the structural limitation identified in Section 6. The mini
 
 | Finding | Status | Implication |
 |---------|--------|-------------|
-| Onset reproduces all five catastrophe flags in the clinical direction | Confirmed across default and varied parameters | The phase-transition framework applies to the engagement → withdrawal transition |
+| Onset reproduces all five catastrophe flags in the clinical direction | Confirmed across default and varied parameters | The phase-transition framework applies to the engagement → withdrawal transition * (see Note)|
 | Recovery is field-dominated: restoring $\Delta c$ matters more than restoring $\gamma$ | Robust across thresholds, $p$, and $\alpha_0$ | Motivation/re-engagement is the primary driver of recovery; cognitive precision plays a secondary role |
 | Orthogonal interventions cannot substitute for field restoration | Confirmed under partial $\Delta c$ restoration | Clinical interventions that do not address motivation directly have limited leverage |
 | Symmetric evidence decay does not produce $T_{\text{ill}}$-dependent hysteresis | Structural negative result | The minimal model cannot explain illness-duration scarring without additional asymmetric mechanisms |
 | Strategy-specific retention ($\eta_{\text{eng}} < \eta_{\text{wdr}}$) produces $T_{\text{ill}}$-dependent path asymmetry | Confirmed; effect scales with retention-rate gap | Asymmetric memory is the minimal mechanism needed for genuine illness-duration-dependent hysteresis |
+
+* NOTE! While in this project we do not go deeper into this aspect of the theory, these catastrophe flags have been studied in more detail and we have provided simulations for them in the separate (yet theoretically related) project on "Phase Transitions in Active Inference" (early learning and developmental psychology context); for instance, for simulations details see Notebook 02 of that project: https://github.com/dtsomoucl/phase-transitions-in-active-inference/blob/main/notebooks/Notebook_02_Simulation_Verifying_Bifurcation.md (Tsomokos, 2026).
 
 ---
 
