@@ -1,4 +1,4 @@
-### DT --> End-to-end runner for the local ABCD/MCS cohort pipeline.
+### DT --> End-to-end runner for the licensed ABCD/MCS cohort pipeline.
 source("R/utils.R")
 source("R/inventory.R")
 source("R/abcd_pipeline.R")
@@ -96,17 +96,17 @@ safe_write_csv(mcs_mi_primary$coefficient_test, fs::path(config$outputs$tables_d
 safe_write_csv(abcd_fiml_primary$coefficients, fs::path(config$outputs$tables_dir, "abcd_primary_fiml_coefficients.csv"))
 safe_write_csv(abcd_fiml_primary$coefficient_test, fs::path(config$outputs$tables_dir, "abcd_primary_fiml_test.csv"))
 
-### DT ---> MCS-parity sensitivity: ABCD primary model without parent education
+### DT --> MCS-parity sensitivity: ABCD primary model without parent education
 abcd_no_parented <- fit_abcd_no_parented_sensitivity(abcd)
 safe_write_csv(abcd_no_parented$coefficients,     fs::path(config$outputs$tables_dir, "abcd_no_parented_coefficients.csv"))
 safe_write_csv(abcd_no_parented$coefficient_test, fs::path(config$outputs$tables_dir, "abcd_no_parented_test.csv"))
 
 ### DT --> ================================================================
-### DT --> Balance-Index Analyses (Notebook 03)
+### DT --> Exploratory Balance-Composite Analyses (Notebook 03)
 ### DT --> ================================================================
-### DT --> Theory: ψ = log(distress / wellbeing-or-motivation) is an
-### DT --> empirical proxy for the product γΔc — the combined location
-### DT --> in the phase space governing transitions.
+### DT --> ψ = log(distress / wellbeing-or-motivation) is evaluated as a
+### DT --> prespecified nonlinear questionnaire composite. It is not treated
+### DT --> as a direct estimate of γΔc or as a validated phase coordinate.
 ### DT --> MCS: ψ₁₇ = log(Kessler / WEMWBS), age 17 → age 23 outcomes
 ### DT --> ABCD: ψ = log(CBCL stress / Positive Affect), ses-03A → ses-05A
 ### DT --> ================================================================
