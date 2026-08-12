@@ -12,13 +12,15 @@ ONSET_REGIME
     onset claim under the actual simulated schedule.
 
 RECOVERY_REGIME
-    Low prior precision (α₀ = 2), fast erosion of γ during illness with
+    Low prior precision (α₀ = 2), fast erosion of γ during the fixed adverse
+    schedule with
     slow erosion of Δc.  Used in Steps 2–5 (hysteresis, robustness,
     orthogonal interventions, decay, asymmetric memory).  The qualitative
     difference from ONSET_REGIME (α₀ factor of 20, γ_rate factor of 10)
-    reflects a less-informed prior at illness onset; the field-dominance
-    and hysteresis conclusions are robust across both regimes (see
-    fig_S2_cross_regime.png).
+    reflects a less-informed prior at adversity onset. The field-dominance
+    conclusion is checked across both regimes (fig_S2_cross_regime.png) and
+    after verified withdrawal (fig_S6_verified_withdrawal.png). Duration
+    effects are schedule-dependent and are not verified residence-time effects.
 
 ONSET_AS_RECOVERY_REGIME
     ONSET_REGIME parameters re-run through the recovery protocol to confirm
@@ -27,10 +29,10 @@ ONSET_AS_RECOVERY_REGIME
     step2_robustness.py.
 """
 
-### DT ---> The onset regime is chosen so the live adversity schedule enters
-### DT ---> the quasistatic multistable window while policy precision remains
-### DT ---> above the critical level. This supports a genuine catastrophe-style
-### DT ---> onset claim under the actual simulated schedule.
+### DT --> The onset regime is chosen so the live adversity schedule enters
+### DT --> the quasistatic multistable window while policy precision remains
+### DT --> above the critical level. This supports a catastrophe-style onset
+### DT --> result under the simulated schedule.
 ONSET_REGIME = dict(
     p=0.85,
     alpha_0=40.0,
@@ -43,9 +45,9 @@ ONSET_REGIME = dict(
     delta_c_floor=-0.15,
 )
 
-### DT ---> The recovery regime keeps the original lower-prior, stronger-erosion
-### DT ---> schedule used in the field-dominance analyses so the Step 2-4
-### DT ---> recovery results remain directly comparable.
+### DT --> The recovery regime uses the lower-prior, stronger-erosion schedule
+### DT --> applied in the field-dominance analyses so the Step 2-4 recovery
+### DT --> results remain directly comparable.
 RECOVERY_REGIME = dict(
     p=0.85,
     alpha_0=2.0,
@@ -58,9 +60,9 @@ RECOVERY_REGIME = dict(
     delta_c_floor=-0.15,
 )
 
-### DT ---> This regime runs the onset-regime parameters through the recovery
-### DT ---> protocol. Purpose: confirm that field dominance does not depend on
-### DT ---> the low-prior assumption of RECOVERY_REGIME. See W1 in review notes.
+### DT --> This regime runs the onset-regime parameters through the recovery
+### DT --> protocol to test whether field dominance depends on the lower-prior
+### DT --> assumption of RECOVERY_REGIME.
 ONSET_AS_RECOVERY_REGIME = dict(
     p=0.85,
     alpha_0=40.0,           # same as ONSET_REGIME

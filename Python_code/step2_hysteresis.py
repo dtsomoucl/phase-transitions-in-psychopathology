@@ -1,7 +1,7 @@
 """
 Step 2: Recovery Boundary Under Partial and Full Control Restoration
 ====================================================================
-Building on the Step 1 consolidation, we map the recovery landscape
+Building on the Step 1 adversity schedule, we map the recovery landscape
 in the (gamma_restored, Dc_restored) control space.
 
 Key findings:
@@ -17,7 +17,7 @@ This Step establishes:
   (a) A heuristic approximation of the recovery boundary in (γ, Δc)
       space, using a reduced model of the post-illness Dirichlet state,
       validated against the full stochastic simulator.
-  (b) The weak T_ill dependence — honestly documented.
+  (b) The weak fixed-schedule exposure-duration dependence.
   (c) The central result: recovery requires restoring the preference
       field, not just cognitive precision.
   (d) The setup for Step 3: what if Δc CANNOT be restored directly?
@@ -105,10 +105,12 @@ def analytical_recovery_Pp1(gamma, dc, a, b):
  
 def post_illness_discriminabilities(p, a0, Nh, T_ill, frac_eng_healthy=0.85,
                                      frac_wd_ill=0.80):
-    """Approximate learned a, b after healthy phase + illness.
+    """Approximate learned a, b after healthy phase + adverse exposure.
 
     ### DT --> The healthy phase is allowed to contribute learning to both columns,
-    ### DT --> so T_ill = 0 does not collapse the withdrawal discriminability to 0.5.
+    ### DT --> so the zero-exposure condition does not collapse withdrawal
+    ### DT --> discriminability to 0.5. T_ill is retained as an internal legacy
+    ### DT --> name; it denotes scheduled exposure, not verified state residence.
     """
     n1 = Nh * frac_eng_healthy
     n2 = Nh * max(1.0 - frac_eng_healthy, 0.0) + T_ill * frac_wd_ill
@@ -165,10 +167,8 @@ def fig_recovery_boundary():
                 Pp_grid[i, j] = analytical_recovery_Pp1(gam, dc, a, b)
         ax.contour(gamma_range, dc_range, Pp_grid, levels=[0.5],
                    colors=[color], linestyles=[ls], linewidths=2)
-        # Label
-        idx = np.argmin(np.abs(Pp_grid[:, -1] - 0.5))
-        ax.annotate(f'T={T_ill}', xy=(gamma_range[-1], dc_range[idx]),
-                    fontsize=8, color=color, ha='right')
+        ### DT --> The exposure curves are identified in the legend; direct
+        ### DT --> labels would overlap because the boundaries are nearly equal.
 
     ax.set_xlabel(r'Restored $\gamma$')
     ax.set_ylabel(r'Restored $\Delta c$')
@@ -178,14 +178,13 @@ def fig_recovery_boundary():
             fontstyle='italic')
     ax.text(4.8, -0.13, 'Persistent withdrawal', fontsize=9, color='#a50f15',
             fontstyle='italic')
-    ### DT ---> Add manual legend for contour lines (contour() does not
-    ### DT ---> auto-label in this version of matplotlib)
+    ### DT --> Add a manual legend because contour lines are not labelled automatically.
     from matplotlib.lines import Line2D
     legend_elements = [
-        Line2D([0], [0], color='gray',  linestyle=':',  lw=2, label='T_ill=0'),
-        Line2D([0], [0], color='blue',  linestyle='--', lw=2, label='T_ill=100'),
-        Line2D([0], [0], color='green', linestyle='-',  lw=2, label='T_ill=200'),
-        Line2D([0], [0], color='red',   linestyle='-.', lw=2, label='T_ill=400'),
+        Line2D([0], [0], color='gray',  linestyle=':',  lw=2, label='Exposure=0'),
+        Line2D([0], [0], color='blue',  linestyle='--', lw=2, label='Exposure=100'),
+        Line2D([0], [0], color='green', linestyle='-',  lw=2, label='Exposure=200'),
+        Line2D([0], [0], color='red',   linestyle='-.', lw=2, label='Exposure=400'),
     ]
     ax.legend(handles=legend_elements, fontsize=8, loc='lower right')
  
@@ -217,10 +216,10 @@ def fig_recovery_boundary():
     ax.axhline(y=0.5, color='gray', ls='--', alpha=0.5, label='Recovery threshold')
     ax.set_xlabel(r'Restored $\Delta c$')
     ax.set_ylabel('Median late P(engaged)')
-    ax.set_title(f'(b) Simulation check (T = {T_ill_sim})')
+    ax.set_title(f'(b) Simulation check (scheduled exposure = {T_ill_sim})')
     ax.legend(fontsize=8)
  
-    # ── Panel (c): T_ill dependence (weak) ──
+    ### DT --> Panel (c): fixed-schedule duration dependence (weak).
     ax = axes[2]
     T_ills = [50, 100, 200, 400, 600]
     # At Dc_restored = 0.08 (moderate), sweep T_ill
@@ -242,9 +241,9 @@ def fig_recovery_boundary():
                 label=rf'$\gamma_{{res}}={gam},\ \Delta c_{{res}}={dc_rest}$')
  
     ax.axhline(y=0.5, color='gray', ls='--', alpha=0.5)
-    ax.set_xlabel('Illness residence time (T_ill)')
+    ax.set_xlabel('Adverse-schedule exposure after healthy phase')
     ax.set_ylabel('Median late P(engaged)')
-    ax.set_title(r'(c) Weak illness-duration dependence')
+    ax.set_title(r'(c) Weak schedule-duration dependence')
     ax.legend(fontsize=7)
  
     fig.suptitle(
@@ -262,7 +261,7 @@ def fig_recovery_boundary():
 # ====================================================================
 def fig_clinical_prediction():
     """
-    Clean comparison of four recovery strategies after fixed onset:
+    Clean comparison of four recovery strategies after fixed exposure:
       1. Restore gamma only (Dc adverse)
       2. Restore Dc only (gamma stays low)
       3. Restore both (full same-variable reversal)
@@ -311,7 +310,7 @@ def fig_clinical_prediction():
                        fontsize=10)
     ax.set_ylabel('Median late P(engaged)')
     ax.axhline(y=0.5, color='gray', ls='--', alpha=0.5)
-    ax.set_title(f'(a) Recovery by intervention type (T = {T_ill})')
+    ax.set_title(f'(a) Recovery by intervention type (scheduled exposure = {T_ill})')
     ax.set_ylim(0, 1.05)
     
     # ── Panel (b): Trajectories for the four conditions ──

@@ -1,6 +1,6 @@
 """
-Synthetic internal consistency check — bridging latent field/precision
-dynamics to the empirical regression and classification designs.
+Synthetic calibration demonstration linking latent field/precision dynamics
+to the empirical regression and classification designs.
 
 This script does NOT alter the main simulation notebooks. It shows, in a
 transparent synthetic-data setting, that:
@@ -11,9 +11,9 @@ transparent synthetic-data setting, that:
      regression design used empirically — and that this holds across a
      range of reliability mismatches.
 
-  2. A balance index can outperform distress-only and motivation-only
-     models when the binary outcome is genuinely driven by a ratio-like
-     phase coordinate.
+  2. A ratio composite outperforms its components when the binary outcome is
+     defined to be driven by that same ratio. This is a deliberately
+     constructed measurement demonstration, not independent model evidence.
 
 Calibration note
 ----------------
@@ -21,9 +21,9 @@ The DGP parameters (field_strength, precision_strength) are set to match
 the observed MCS primary-MI coefficients: field β ≈ −0.30, precision β
 ≈ +0.02 (n.s.).  The n.s. precision result is reproduced by setting
 precision_strength close to zero (0.02).  The simulation therefore serves
-as an internal consistency check — it confirms that the observed ratio of
-coefficients is compatible with the field-dominant latent dynamics
-postulated by the model — NOT as independent evidence for those dynamics.
+as a calibration demonstration: the observed coefficient ordering is
+compatible with the constructed field-dominant data-generating process, but
+the simulation is not independent evidence for that process.
 """
 
 import csv
@@ -51,9 +51,9 @@ plt.rcParams.update({
     'savefig.bbox': 'tight',
 })
 
-### DT ---> MCS observed coefficients — field β ≈ −0.305, precision β ≈ +0.016
-### DT ---> These values are used to calibrate the DGP so the bridge is a
-### DT ---> genuine consistency check rather than a self-confirming demonstration.
+### DT --> MCS observed coefficients — field β ≈ −0.305, precision β ≈ +0.016
+### DT --> These values calibrate the DGP; the resulting ordering is therefore
+### DT --> an internal demonstration rather than independent empirical evidence.
 _MCS_FIELD_BETA = 0.305    # abs value; sign = protective
 _MCS_PRECISION_BETA = 0.016  # abs value; n.s. in MCS
 
@@ -173,10 +173,10 @@ def simulate_balance_dataset(n, seed, distress_rel=0.80, motivation_rel=0.80):
 
 
 def run_lagged_bridge():
-    ### DT ---> Scenarios bracket the MCS measurement properties.
-    ### DT ---> "MCS-calibrated" uses matched reliabilities typical of multi-item scales.
-    ### DT ---> The two mismatch scenarios show that field dominance widens with
-    ### DT ---> poorer precision measurement but is not caused by it.
+    ### DT --> Scenarios bracket the MCS measurement properties.
+    ### DT --> "MCS-calibrated" uses matched reliabilities typical of multi-item scales.
+    ### DT --> The two mismatch scenarios show that field dominance widens with
+    ### DT --> poorer precision measurement but is not caused by it.
     scenarios = [
         ('Matched reliability\n(field=0.75, prec=0.75)', 0.75, 0.75),
         ('Precision attenuated\n(field=0.80, prec=0.45)', 0.80, 0.45),
@@ -249,7 +249,7 @@ def plot_bridge(lagged_rows, balance_rows):
     prec_sds = [r['precision_beta_sd'] for r in lagged_rows]
     width = 0.34
 
-    ### DT ---> Determine y ceiling before drawing so annotations sit above bars
+    ### DT --> Determine y ceiling before drawing so annotations sit above bars
     y_tops = [max(abs(fm), abs(pm)) + sd + 0.05
               for fm, pm, sd in zip(field_means, prec_means, field_sds)]
     y_ceil = max(y_tops) + 0.14
@@ -264,7 +264,7 @@ def plot_bridge(lagged_rows, balance_rows):
                 fmt='none', ecolor='black', capsize=5, lw=1.2)
     ax.axhline(0, color='gray', lw=0.8, ls='--')
     ax.set_xticks(x)
-    ### DT ---> Rotate 20° so two-line labels don't overlap; anchor to right edge.
+    ### DT --> Rotate 20° so two-line labels don't overlap; anchor to right edge.
     ax.set_xticklabels([r['scenario'] for r in lagged_rows], fontsize=8.5,
                        rotation=20, ha='right', rotation_mode='anchor')
     ax.set_ylabel('Mean standardised lagged coefficient (±1 SD)')
@@ -289,20 +289,20 @@ def plot_bridge(lagged_rows, balance_rows):
     ax.set_xticklabels(['Distress only', 'Motivation only', 'Balance index'], fontsize=9)
     ax.set_ylabel('Mean AUC (±1 SD, 150 replicates)')
     ax.set_ylim(0.45, 0.95)
-    ax.set_title('(b) Balance index predicts best\n'
-                 'when caseness is driven by a ratio-like phase coordinate')
+    ax.set_title('(b) Constructed ratio advantage\n'
+                 'when caseness is defined by that ratio')
     for xi, auc, sd, brier in zip(x2, auc_means, auc_sds, briers):
         ax.text(xi, auc + sd + 0.025, f'Brier={brier:.3f}',
                 ha='center', va='bottom', fontsize=8)
 
     fig.suptitle(
-        'Synthetic internal consistency check: field-dominant DGP\n'
-        'reproduces the empirical coefficient ordering and balance-index advantage\n'
+        'Synthetic calibration demonstration: field-dominant DGP\n'
+        'reproduces the target coefficient ordering and constructed ratio advantage\n'
         '(calibrated to observed MCS coefficients — not independent evidence)',
         fontsize=11.5, y=1.03
     )
-    ### DT ---> pad=1.5 gives headroom for the three-line x-tick labels;
-    ### DT ---> savefig.bbox=tight in rcParams expands the saved canvas automatically.
+    ### DT --> pad=1.5 gives headroom for the three-line x-tick labels;
+    ### DT --> savefig.bbox=tight in rcParams expands the saved canvas automatically.
     plt.tight_layout(pad=1.5)
     plt.savefig(f"{OUT}/fig_S_bridge_empirical.png")
     plt.close()
@@ -311,7 +311,7 @@ def plot_bridge(lagged_rows, balance_rows):
 
 def run_all():
     """Entry point called by main.py."""
-    print("Running empirical bridge (synthetic consistency check)...")
+    print("Running empirical bridge (synthetic calibration demonstration)...")
     lagged_rows = run_lagged_bridge()
     balance_rows = run_balance_bridge()
     save_rows("simulation_bridge_lagged.csv", lagged_rows)
@@ -319,7 +319,7 @@ def run_all():
     plot_bridge(lagged_rows, balance_rows)
     print("  Lagged bridge summary:")
     for row in lagged_rows:
-        print(f"    {row['scenario'][:40]}: "
+        print(f"    {row['scenario']}: "
               f"field={row['field_beta_mean']:.3f}, "
               f"prec={row['precision_beta_mean']:.3f}, "
               f"P(|f|>|p|)={row['p_abs_field_gt_precision']:.2f}")
@@ -330,7 +330,7 @@ def run_all():
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("Standalone empirical bridge (synthetic consistency check)")
+    print("Standalone empirical bridge (synthetic calibration demonstration)")
     print("=" * 60)
     run_all()
     print("=" * 60)

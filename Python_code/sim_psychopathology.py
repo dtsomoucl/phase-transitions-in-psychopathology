@@ -16,19 +16,15 @@ We verify that the reverse transition reproduces the catastrophe-flag
 signatures from the original paper, now in the clinical direction
 (engaged to withdrawn).
 
-Changes in this version
------------------------
-  1. fig_P2 panel (b) — split into three separate time-series sub-panels
-     (P(engaged), γ(t), Δc(t)); the ×30 scaling artefact is removed.
-  2. fig_P_flags — bimodality panel uses a dynamically-chosen time point
-     near the variance peak; divergence panel shows individual paired
-     trajectory bifurcations rather than a dose-response curve; the
-     redundant variance panel is removed (it is shown in fig_P2).
-  3. fig_P3 EWS — autocorrelation panel replaced by event-aligned AC:
-     each agent's trace is aligned at that agent's own transition time
-     so the pre-transition rise (critical slowing down) is not masked by
-     population heterogeneity in jump timing.
-  4. fig_P_reversal_true is retained as a callable function but is not
+Implementation and outputs
+--------------------------
+  1. fig_P2 combines the ensemble transition, quasistatic structure,
+     variance, and separate P(engaged), γ(t), and Δc(t) time series.
+  2. fig_P_flags evaluates bimodality near the variance peak and shows
+     individual paired trajectory bifurcations.
+  3. fig_P3 uses event-aligned autocorrelation so population variation
+     in transition timing does not obscure the pre-transition pattern.
+  4. fig_P_reversal_true is available as a callable diagnostic but is not
      produced by run_all() / main.py.
 """
 

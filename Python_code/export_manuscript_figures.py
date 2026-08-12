@@ -10,23 +10,33 @@ import sim_psychopathology as step1
 import step2_hysteresis as step2
 import step4_decay as step4
 import step5_asymmetric_memory as step5
+import export_figure1_concept as concept
 
 
 ROOT = Path(__file__).resolve().parents[1]
 MANUSCRIPT_DIR = ROOT / "Manuscript"
 
 
-def export_fig1_to_fig3():
+def _copy_figure(source_stem, destination_stem):
+    for suffix in [".pdf", ".png"]:
+        shutil.copy2(
+            Path(f"{source_stem}{suffix}"),
+            MANUSCRIPT_DIR / f"{destination_stem}{suffix}",
+        )
+
+
+def export_fig1_to_fig4():
+    concept.main()
     step1.plot_onset_with_theory()
     step2.fig_clinical_prediction()
     step2.fig_recovery_boundary()
 
-    shutil.copy2(Path(step1.OUT) / "fig_P2_onset_revised.pdf", MANUSCRIPT_DIR / "Fig_1.pdf")
-    shutil.copy2(Path(step2.OUT) / "fig_S2_clinical_prediction.pdf", MANUSCRIPT_DIR / "Fig_2.pdf")
-    shutil.copy2(Path(step2.OUT) / "fig_S2_recovery_boundary.pdf", MANUSCRIPT_DIR / "Fig_3.pdf")
+    _copy_figure(Path(step1.OUT) / "fig_P2_onset_revised", "Fig_2")
+    _copy_figure(Path(step2.OUT) / "fig_S2_clinical_prediction", "Fig_3")
+    _copy_figure(Path(step2.OUT) / "fig_S2_recovery_boundary", "Fig_4")
 
 
-def export_fig4():
+def export_fig5():
     fig, axes = plt.subplots(1, 2, figsize=(7.4, 3.7))
 
     p = step4.REGIME["p"]
@@ -59,7 +69,7 @@ def export_fig4():
             meds.append(np.median(vals))
         ax.plot(T_ills, meds, "o-", color=col, ms=4.5, lw=1.6, label=f"η={eta:.3f}" if eta < 1 else "η=1.000")
     ax.axhline(y=0.5, color="#9e9e9e", ls="--", lw=0.8)
-    ax.set_xlabel("Illness residence time (T_ill)")
+    ax.set_xlabel("Adverse-schedule exposure after healthy phase")
     ax.set_ylabel("Median late P(engaged) after full reversal")
     ax.set_title(r"(a) Full reversal, $\Delta c_0 = 0.10$")
     ax.set_ylim(0.45, 1.0)
@@ -78,7 +88,7 @@ def export_fig4():
     for label, eta_eng, eta_wdr, color in threshold_curves:
         dc_needed = [step5.find_dc_threshold(t_ill, eta_eng, eta_wdr) for t_ill in t_ills]
         ax.plot(t_ills, dc_needed, marker="o", color=color, ms=4.5, lw=1.8, label=label)
-    ax.set_xlabel("Illness residence time (T_ill)")
+    ax.set_xlabel("Adverse-schedule exposure after healthy phase")
     ax.set_ylabel(r"Min. restored $\Delta c$ needed for recovery")
     ax.set_title(r"(b) Recovery thresholds with asymmetric memory")
     ax.set_ylim(-0.005, 0.105)
@@ -90,15 +100,15 @@ def export_fig4():
     )
 
     plt.tight_layout()
-    fig.savefig(MANUSCRIPT_DIR / "Fig_4.pdf")
-    fig.savefig(MANUSCRIPT_DIR / "Fig_4.png", dpi=300)
+    fig.savefig(MANUSCRIPT_DIR / "Fig_5.pdf")
+    fig.savefig(MANUSCRIPT_DIR / "Fig_5.png", dpi=300)
     plt.close(fig)
 
 
 def main():
     MANUSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
-    export_fig1_to_fig3()
-    export_fig4()
+    export_fig1_to_fig4()
+    export_fig5()
 
 
 if __name__ == "__main__":

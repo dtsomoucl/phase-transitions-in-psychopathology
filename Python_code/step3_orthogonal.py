@@ -18,6 +18,9 @@ Findings after adding Step-2-style robustness checks:
 Status: internally consistent with the field-dominance result from
 Step 2, now supplemented with threshold sensitivity and regime
 dependence checks to show that any orthogonal benefit is secondary.
+
+T_ill is retained below as a legacy variable name for elapsed trials on the
+fixed adverse schedule. It is not verified withdrawal-residence time.
 """
 
 import numpy as np, matplotlib; matplotlib.use('Agg')

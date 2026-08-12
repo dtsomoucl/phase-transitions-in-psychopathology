@@ -1,24 +1,25 @@
 """
-Step 5: Asymmetric Memory Extension for Path Asymmetry
-======================================================
+Step 5: Asymmetric Memory Under a Fixed Adversity Schedule
+==========================================================
 Introduces strategy-specific evidence retention: engagement-related
 Dirichlet counts can decay faster than withdrawal-related counts (η_eng <
-η_wdr).  Unlike symmetric decay (Step 4 null result), this structural
-asymmetry can create genuine illness-duration hysteresis under full
-same-variable reversal.
+η_wdr). Under the original fixed schedule, this asymmetry can create an
+exposure-duration pattern under full same-variable reversal. The schedule
+duration includes gradual control drift and must not be interpreted as
+verified residence time in withdrawal. See step6_verified_withdrawal.py for
+the state-anchored boundary-condition analysis.
 
-Clinical interpretation
------------------------
-Withdrawal strategies may become more habit-like or self-reinforcing,
-retaining their evidential weight longer, while engagement evidence becomes
-less accessible after prolonged illness.  The model gives this a
-mechanistic reading: asymmetric η produces a ratchet in the Dirichlet
-belief state that resists reversal as T_ill grows.
+Interpretive scope
+------------------
+The retention asymmetry is an imposed model property, not an estimated human
+memory process. The fixed-schedule result is a theoretical existence result;
+the event-anchored sensitivity does not show a monotonic recovery-threshold
+increase with additional post-verification adverse trials.
 
 Non-monotonicity note
 ---------------------
 The "Asymmetric mild" (η_eng=0.990, η_wdr=0.997) condition shows weak and
-occasionally non-monotonic T_ill dependence.  This is expected: at mild
+occasionally non-monotonic scheduled-exposure dependence. At mild
 asymmetry levels, stochastic variation in Dirichlet trajectories can
 dominate the small hysteresis signal.  The effect is clear and monotone
 only for the stronger asymmetry condition (η_eng=0.985).  The mild
@@ -61,8 +62,8 @@ plt.rcParams.update({
 
 REGIME = recovery_regime()
 
-### DT ---> Sample sizes increased from original (na=60/40) to reduce noise
-### DT ---> sufficiently to distinguish the mild asymmetry condition.
+### DT --> Sample sizes are selected to distinguish the mild-asymmetry condition
+### DT --> with stable Monte Carlo summaries.
 _NA_MAIN = 150    # main T_ill curves
 _NA_HEAT = 100    # heatmap cells
 _NA_THRESH = 80   # threshold sweep
@@ -205,10 +206,10 @@ def fig_asymmetric_hysteresis():
         ax.fill_between(T_ills, q1s, q3s, alpha=0.15, color=color)
 
     ax.axhline(y=0.5, color='gray', ls='--', alpha=0.5, label='Recovery threshold')
-    ax.set_xlabel('Illness residence time ($T_\\mathrm{ill}$)')
+    ax.set_xlabel('Adverse-schedule exposure after healthy phase')
     ax.set_ylabel(f'Median (IQR) late P(engaged) after full reversal\n(n = {_NA_MAIN} agents per cell)')
-    ax.set_title('(a) Recovery declines with illness duration\n'
-                 r'only when memory is asymmetric ($\eta_e < \eta_w$)')
+    ax.set_title('(a) Recovery across scheduled exposure lengths\n'
+                 r'under symmetric and asymmetric retention')
     ax.legend(fontsize=7.5)
     ax.set_ylim(0, 1.05)
 
@@ -233,7 +234,7 @@ def fig_asymmetric_hysteresis():
         for v in eta_eng_grid
     ]
     ax.set_yticklabels(cum_labels, fontsize=7.5)
-    ax.set_xlabel('$T_\\mathrm{ill}$')
+    ax.set_xlabel('Adverse-schedule exposure')
     ax.set_title(r'(b) Stronger $\eta_e$ asymmetry progressively lowers recovery'
                  '\n' + rf'($\eta_w = {eta_wdr:.3f}$, cumul. retained ≈0.55 at $T$=200; n = {_NA_HEAT})')
     for ei in range(len(eta_eng_grid)):
@@ -255,16 +256,16 @@ def fig_asymmetric_hysteresis():
         ax.plot(T_ills, dc_needed, marker='o', color=color, lw=2, label=label)
     ax.axhline(y=REGIME["delta_c_healthy"], color='gray', ls=':', alpha=0.6,
                label=r'Healthy $\Delta c$')
-    ax.set_xlabel('Illness residence time ($T_\\mathrm{ill}$)')
+    ax.set_xlabel('Adverse-schedule exposure after healthy phase')
     ax.set_ylabel(r'Min. $\Delta c$ needed for recovery (median P ≥ 0.5)')
-    ax.set_title(f'(c) Recovery threshold rises with illness duration\n'
-                 f'only under asymmetric retention (n = {_NA_THRESH} per cell)')
+    ax.set_title(f'(c) Fixed-schedule recovery threshold by exposure length\n'
+                 f'under asymmetric retention (n = {_NA_THRESH} per cell)')
     ax.legend(fontsize=8)
     ax.set_ylim(-0.02, 0.19)
 
     fig.suptitle(
-        'Strategy-specific evidence retention creates illness-duration-dependent path asymmetry\n'
-        r'(null result under symmetric decay, Step 4; mild asymmetry is weak — interpret with caution)',
+        'Strategy-specific evidence retention creates a schedule-dependent recovery pattern\n'
+        r'(not a verified withdrawal-residence effect; see Step 6 sensitivity)',
         fontsize=12, y=1.04
     )
     plt.tight_layout()

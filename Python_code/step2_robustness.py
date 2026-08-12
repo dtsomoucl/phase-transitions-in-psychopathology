@@ -3,15 +3,19 @@ Step 2 Robustness Checks
 ========================
 (a) Cross-regime field dominance: replicate the Δc > γ recovery result
     using ONSET_AS_RECOVERY_REGIME (α₀=40) to show it does not depend on
-    the low-prior assumption of RECOVERY_REGIME (α₀=2).  This is the
-    primary robustness check (W1 in review notes) and the only figure
-    produced by run_all() / main.py.
+    the low-prior assumption of RECOVERY_REGIME (α₀=2). This is the
+    primary cross-regime robustness check and the only figure produced
+    by run_all() / main.py.
 
 (b) Threshold sensitivity: does the intervention ranking hold at P=0.5,
     0.6, 0.7?  Retained as a callable function; not in main sweep.
 
 (c) Regime dependence: heatmap of (Δc-effect minus γ-effect) across
     (p, α₀).  Retained as callable; not in main sweep.
+
+T_ill is retained as an internal legacy variable name in this module. It
+denotes elapsed trials on the fixed adverse schedule, not verified residence
+time in a withdrawn state. State-anchored checks are in Step 6.
 """
 
 import numpy as np, matplotlib; matplotlib.use('Agg')
@@ -201,9 +205,9 @@ def fig_cross_regime_field_dominance():
 
     Both regimes are plotted side-by-side for direct comparison.
     """
-    ### DT ---> Two regimes compared: low-prior RECOVERY_REGIME (α₀=2)
-    ### DT ---> and high-prior ONSET_AS_RECOVERY_REGIME (α₀=40).
-    ### DT ---> The field-dominance conclusion must hold in both.
+    ### DT --> Two regimes are compared: lower-prior RECOVERY_REGIME (α₀=2)
+    ### DT --> and higher-prior ONSET_AS_RECOVERY_REGIME (α₀=40).
+    ### DT --> Their comparison evaluates the robustness of field dominance.
     regimes = [
         ('RECOVERY_REGIME\n(α₀=2, standard)', REGIME, 10000),
         ('ONSET_AS_RECOVERY_REGIME\n(α₀=40, high-prior)', REGIME_ONSET, 50000),
@@ -233,8 +237,7 @@ def fig_cross_regime_field_dominance():
         for ci, (_, kw) in enumerate(conditions_spec):
             rg_val = regime[kw['rg_key']]
             rdc_val = regime[kw['rdc_key']]
-            ### DT ---> step2_robustness.sweep_agent has no N parameter;
-            ### DT ---> use keyword seed directly (no positional None placeholder).
+            ### DT --> Pass the seed by keyword to preserve the sweep-agent API.
             vals = [
                 sweep_agent(p, a0, seed=seed_offset + ci * 1000 + i,
                             gh=gh, dch=dch, Nh=Nh, gr=gr, dcr=dcr,
@@ -264,10 +267,10 @@ def fig_cross_regime_field_dominance():
                    label='Recovery threshold')
         ax.set_ylim(0, 1.05)
         ax.set_title(f'{regime_name}\n'
-                     f'(α₀={a0:.0f}, γ_rate={gr:.3f}, T_ill={T_ill}, n={na})')
+                     f'(α₀={a0:.0f}, γ_rate={gr:.3f}, scheduled exposure={T_ill}, n={na})')
         ax.legend(fontsize=8)
 
-        ### DT ---> Annotate with advantage direction for clarity
+        ### DT --> Annotate the direction of the recovery advantage.
         dc_med = meds[2]; g_med = meds[1]
         advantage = dc_med - g_med
         arrow_x = 2 if advantage > 0 else 1

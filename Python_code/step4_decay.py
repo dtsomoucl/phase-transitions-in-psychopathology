@@ -1,6 +1,6 @@
 """
-Symmetric Evidence Decay Does Not Create Regime-2 Hysteresis
-=============================================================
+Symmetric Evidence Decay Under the Fixed Adversity Schedule
+============================================================
 Single-parameter extension: at each trial, all Dirichlet concentrations
 decay toward the prior baseline:
     alpha_i -> eta * alpha_i + (1-eta) * alpha_0/2
@@ -17,11 +17,10 @@ health-phase evidence during illness.  Under full reversal with adequate
 recovery time, faster decay can actually HELP recovery by making the
 agent more responsive to the restored positive preference field.
  
-This is a structural finding: the minimal two-state model with symmetric
-Dirichlet learning and symmetric decay cannot produce asymmetric
-hysteresis.  Genuine Regime-2 trapping would require strategy-dependent
-decay rates, domain-specific forgetting, or other structural asymmetries
-between the two strategies.
+Within this fixed schedule, symmetric Dirichlet learning and symmetric decay
+do not produce an increasing exposure-duration recovery cost. The separate
+state-anchored analysis in step6_verified_withdrawal.py is required before
+interpreting any scheduled duration as time resident in a withdrawn state.
 """
 
 import numpy as np, matplotlib; matplotlib.use('Agg')
@@ -105,7 +104,7 @@ def run_agent_decay(p, a0, seed, gh, dch, Nh, gr, dcr, gf, dcf,
  
  
 # ====================================================================
-# FIGURE D1: Recovery under decay — does T_ill dependence emerge?
+### DT --> FIGURE D1: Recovery under decay across scheduled exposure lengths.
 # ====================================================================
 def fig_hysteresis_vs_till():
     """
@@ -113,7 +112,7 @@ def fig_hysteresis_vs_till():
     Panel (b): Same, with weaker Dc (0.05).
     Panel (c): Heatmap of recovery across (eta, T_ill).
  
-    Result: symmetric decay does not produce T_ill-dependent trapping.
+    Result: symmetric decay does not produce schedule-duration trapping.
     Faster decay can facilitate recovery by erasing illness memories.
     """
     fig, axes = plt.subplots(1, 3, figsize=(17, 5.5))
@@ -139,7 +138,7 @@ def fig_hysteresis_vs_till():
             label = f'η={eta}' if eta==1.0 else f'η={eta} (hl={hl:.0f})'
             ax.plot(T_ills, meds, 'o-', color=col, ms=5, lw=1.5, label=label)
         ax.axhline(y=0.5, color='gray', ls='--', alpha=0.5)
-        ax.set_xlabel('Illness residence time (T_ill)')
+        ax.set_xlabel('Adverse-schedule exposure after healthy phase')
         ax.set_ylabel('Median late P(engaged) after full reversal')
         ax.set_title(f'({"a" if panel==0 else "b"}) Full reversal, '
                      rf'$\Delta c_0 = {dc}$')
@@ -166,7 +165,7 @@ def fig_hysteresis_vs_till():
     ax.set_xticklabels(T_grid)
     ax.set_yticks(range(len(eta_grid)))
     ax.set_yticklabels([f'{e:.3f}' for e in eta_grid])
-    ax.set_xlabel('T_ill'); ax.set_ylabel(r'Decay rate $\eta$')
+    ax.set_xlabel('Adverse-schedule exposure'); ax.set_ylabel(r'Decay rate $\eta$')
     for ei in range(len(eta_grid)):
         for ti in range(len(T_grid)):
             v = rec[ei, ti]
@@ -175,7 +174,7 @@ def fig_hysteresis_vs_till():
     cb = plt.colorbar(im, ax=ax); cb.set_label('Median late P(engaged)')
     ax.set_title(rf'(c) Recovery heatmap ($\Delta c_0={dc}$)')
  
-    fig.suptitle('Symmetric evidence decay produces no illness-duration-dependent hysteresis\n'
+    fig.suptitle('Symmetric evidence decay produces no increasing schedule-duration recovery cost\n'
                  r'(null result: full same-variable reversal, $\gamma$ and $\Delta c$ both restored)',
                  fontsize=13, y=1.04)
     plt.tight_layout()
@@ -185,7 +184,7 @@ def fig_hysteresis_vs_till():
  
  
 # ====================================================================
-# FIGURE D2: Contrast — with vs without decay
+### DT --> FIGURE D2: Contrast with versus without decay.
 # ====================================================================
 def fig_decay_contrast():
     """
@@ -199,7 +198,7 @@ def fig_decay_contrast():
     dc=0.08; dcr=dc/200; dcf=-dc
     T_ills = [0, 50, 100, 200, 400, 800]
  
-    # Panel (a): bar comparison at T_ill=400
+    ### DT --> Panel (a): bar comparison after 400 adverse-schedule trials.
     ax = axes[0]
     Ti = 400
     conditions = [
@@ -224,11 +223,11 @@ def fig_decay_contrast():
     ax.set_xticks(range(4))
     ax.set_xticklabels([c[0] for c in conditions], fontsize=9)
     ax.set_ylabel('Median late P(engaged)')
-    ax.set_title(f'(a) Full reversal at T_ill={Ti}\n'
+    ax.set_title(f'(a) Full reversal after scheduled exposure={Ti}\n'
                  rf'($\Delta c_0={dc}$, $\gamma$=16)')
     ax.set_ylim(0, 1.05)
  
-    # Panel (b): T_ill curves, no-decay vs moderate-decay
+    ### DT --> Panel (b): scheduled-exposure curves with versus without decay.
     ax = axes[1]
     for eta, col, ls, label in [(1.0, 'gray', '--', 'No decay (η=1.0)'),
                                  (0.990, '#FF9800', '-', 'With decay (η=0.990)')]:
@@ -243,15 +242,14 @@ def fig_decay_contrast():
             meds.append(np.median(vals))
         ax.plot(T_ills, meds, marker='o', linestyle=ls, color=col, ms=6, lw=2, label=label)
     ax.axhline(y=0.5, color='gray', ls='--', alpha=0.5, label='Recovery threshold')
-    ax.set_xlabel('Illness residence time (T_ill)')
+    ax.set_xlabel('Adverse-schedule exposure after healthy phase')
     ax.set_ylabel('Median late P(engaged) after full reversal')
-    ax.set_title(f'(b) T_ill dependence under decay:\n'
+    ax.set_title(f'(b) Schedule-duration dependence under decay:\n'
                  'symmetric decay does not create trapping')
     ax.legend(fontsize=9); ax.set_ylim(0, 1.05)
  
-    fig.suptitle('Symmetric Decay Is Not the Missing Mechanism for Regime-2 Hysteresis\n'
-                 '(decay erases illness memories during recovery as effectively as '
-                 'health memories during illness)',
+    fig.suptitle('Symmetric Decay Does Not Create an Increasing Exposure-Duration Cost\n'
+                 '(fixed adversity schedule; not verified withdrawal-residence time)',
                  fontsize=13, y=1.05)
     plt.tight_layout()
     save_figure(fig, "fig_D2_decay_contrast")
@@ -264,7 +262,7 @@ def run_all():
     Entry point called by main.py.
 
     Produces only fig_D1_decay_hysteresis.png (the informative negative
-    result that symmetric decay does not create T_ill-dependent trapping).
+    result that symmetric decay does not create schedule-duration trapping).
     fig_D2_decay_contrast is retained as a callable function for ad-hoc
     use but is not part of the main publication sweep.
     """
@@ -276,7 +274,7 @@ if __name__ == "__main__":
     print("=" * 60)
     print("Step 4: Symmetric Evidence Decay (Informative Negative Result)")
     print("=" * 60)
-    print("\n1. Recovery under decay across T_ill and eta...")
+    print("\n1. Recovery under decay across scheduled exposure and eta...")
     fig_hysteresis_vs_till()
     print("\n2. Contrast: with vs without decay (supplementary, not in main sweep)...")
     fig_decay_contrast()
