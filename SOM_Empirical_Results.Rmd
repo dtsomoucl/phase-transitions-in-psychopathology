@@ -1,7 +1,7 @@
 ---
-title: "Supplemental Online Material (SOM): Empirical Results Based on Cross-Cohort Analyses"
+title: "Supplemental Online Material (SOM): Computational and Cross-Cohort Results"
 author: "Dr Dimitris I. Tsomokos (University College London)"
-date: "15 April 2026"
+date: "August 11, 2026"
 output:
   html_document:
     toc: true
@@ -41,6 +41,14 @@ library(purrr)
 
 required_outputs <- c(
   "outputs/tables/claim_summary.csv",
+  "outputs/tables/abcd_wave_summary.csv",
+  "outputs/tables/mcs_wave_summary.csv",
+  "outputs/tables/abcd_attrition.csv",
+  "outputs/tables/mcs_attrition.csv",
+  "outputs/tables/abcd_model_metrics.csv",
+  "outputs/tables/mcs_model_metrics.csv",
+  "outputs/tables/abcd_model_coefficients.csv",
+  "outputs/tables/mcs_model_coefficients.csv",
   "outputs/tables/abcd_coefficient_tests.csv",
   "outputs/tables/mcs_coefficient_tests.csv",
   "outputs/tables/abcd_primary_demographics.csv",
@@ -49,6 +57,11 @@ required_outputs <- c(
   "outputs/tables/abcd_sensitivity_full.csv",
   "outputs/tables/abcd_primary_fiml_coefficients.csv",
   "outputs/tables/abcd_primary_fiml_test.csv",
+  "outputs/tables/abcd_no_parented_coefficients.csv",
+  "outputs/tables/abcd_no_parented_test.csv",
+  "outputs/tables/abcd_context_moderation.csv",
+  "outputs/tables/mcs_context_moderation.csv",
+  "outputs/tables/mcs_prs_moderation.csv",
   "outputs/tables/mcs_context_full.csv",
   "outputs/tables/mcs_prs_full.csv",
   "outputs/tables/mcs_sensitivity_full.csv",
@@ -62,13 +75,38 @@ required_outputs <- c(
   "outputs/tables/abcd_precision_proxy_sensitivity.csv",
   "outputs/tables/mcs_composite_reliability.csv",
   "outputs/tables/abcd_composite_reliability.csv",
+  "outputs/tables/mcs_balance_descriptives.csv",
   "outputs/tables/mcs_balance_comparison.csv",
-  "outputs/tables/abcd_balance_comparison.csv"
+  "outputs/tables/mcs_balance_aic.csv",
+  "outputs/tables/abcd_balance_descriptives.csv",
+  "outputs/tables/abcd_balance_comparison.csv",
+  "outputs/tables/abcd_balance_aic.csv",
+  "outputs/tables/fixed_schedule_intervention_state.csv",
+  "outputs/tables/verified_withdrawal_field_summary.csv",
+  "outputs/tables/verified_withdrawal_diagnostics.csv",
+  "outputs/tables/verified_withdrawal_memory_summary.csv",
+  "outputs/tables/verified_withdrawal_threshold_summary.csv",
+  "outputs/inventory/abcd_variable_mapping.csv",
+  "outputs/inventory/mcs_variable_mapping.csv",
+  "outputs/figures/mcs_trajectory.png",
+  "outputs/figures/mcs_field_vs_precision.png",
+  "outputs/figures/abcd_trajectory.png",
+  "outputs/figures/abcd_field_vs_precision.png",
+  "Python_code/Figs_psychopathology/fig_S6_verified_withdrawal.png"
 )
 
 if (!all(file.exists(required_outputs))) {
-  source("scripts/run_pipeline.R", local = new.env())
+  missing_outputs <- required_outputs[!file.exists(required_outputs)]
+  stop(
+    "The aggregate release outputs required to render this SOM are missing:\n",
+    paste0("- ", missing_outputs, collapse = "\n"),
+    "\nRun the licensed-data pipeline in an authorised environment before rendering."
+  )
 }
+
+project_config <- yaml::read_yaml("config/project_config.yml")
+abcd_baseline_session <- project_config$analysis$abcd_baseline_session
+abcd_followup_session <- project_config$analysis$abcd_followup_session
 
 abcd_wave <- read_csv("outputs/tables/abcd_wave_summary.csv", show_col_types = FALSE)
 mcs_wave <- read_csv("outputs/tables/mcs_wave_summary.csv", show_col_types = FALSE)
@@ -112,8 +150,55 @@ claim_summary <- read_csv("outputs/tables/claim_summary.csv", show_col_types = F
 abcd_mapping <- read_csv("outputs/inventory/abcd_variable_mapping.csv", show_col_types = FALSE)
 mcs_mapping <- read_csv("outputs/inventory/mcs_variable_mapping.csv", show_col_types = FALSE)
 
-abcd_obj <- readRDS("outputs/derived/abcd_analysis_objects.rds")
-mcs_obj <- readRDS("outputs/derived/mcs_analysis_objects.rds")
+simulation_outputs <- c(
+  "outputs/tables/fixed_schedule_intervention_state.csv",
+  "outputs/tables/verified_withdrawal_field_summary.csv",
+  "outputs/tables/verified_withdrawal_diagnostics.csv",
+  "outputs/tables/verified_withdrawal_memory_summary.csv",
+  "outputs/tables/verified_withdrawal_threshold_summary.csv",
+  "Python_code/Figs_psychopathology/fig_S6_verified_withdrawal.png"
+)
+if (!all(file.exists(simulation_outputs))) {
+  stop("State-anchored simulation outputs are missing. Run `python3 main.py` before rendering the SOM.")
+}
+
+fixed_schedule_state <- read_csv(
+  "outputs/tables/fixed_schedule_intervention_state.csv", show_col_types = FALSE
+)
+verified_field_summary <- read_csv(
+  "outputs/tables/verified_withdrawal_field_summary.csv", show_col_types = FALSE
+)
+verified_withdrawal_diagnostics <- read_csv(
+  "outputs/tables/verified_withdrawal_diagnostics.csv", show_col_types = FALSE
+)
+verified_memory_summary <- read_csv(
+  "outputs/tables/verified_withdrawal_memory_summary.csv", show_col_types = FALSE
+)
+verified_threshold_summary <- read_csv(
+  "outputs/tables/verified_withdrawal_threshold_summary.csv", show_col_types = FALSE
+)
+
+has_family_clustered_inference <- function(data) {
+  "missingness_handling" %in% names(data) &&
+    nrow(data) > 0 &&
+    all(str_detect(coalesce(data$missingness_handling, ""), fixed("family-cluster-robust")))
+}
+
+abcd_primary_family_clustered <- all(c(
+  has_family_clustered_inference(abcd_coefs),
+  has_family_clustered_inference(abcd_tests),
+  has_family_clustered_inference(abcd_context),
+  has_family_clustered_inference(abcd_sensitivity_coefs),
+  has_family_clustered_inference(abcd_sensitivity_tests),
+  has_family_clustered_inference(abcd_precision_proxy_sens),
+  has_family_clustered_inference(abcd_balance_comp)
+))
+abcd_fiml_family_clustered <- any(
+  str_detect(
+    coalesce(abcd_fiml_coefs$missingness_handling, ""),
+    fixed("family-cluster-robust")
+  )
+)
 
 main_abcd_sessions <- c("ses-00A", "ses-01A", "ses-02A", "ses-03A", "ses-04A", "ses-05A")
 abcd_main_wave <- abcd_wave %>% filter(wave %in% main_abcd_sessions)
@@ -133,6 +218,42 @@ fmt_p <- function(x) {
     TRUE ~ str_replace(sprintf("%.3f", x), "^0", "")
   )
 }
+
+fmt_p_relation <- function(x) {
+  ifelse(x < .001, "< .001", paste0("= ", fmt_p(x)))
+}
+
+abcd_primary_contrast <- abcd_tests %>%
+  filter(model == "combined") %>%
+  slice(1)
+abcd_fiml_contrast <- abcd_fiml_test %>%
+  filter(model == "combined_fiml") %>%
+  slice(1)
+abcd_parent_education <- abcd_coefs %>%
+  filter(model == "combined", term == "parent_education_z") %>%
+  slice(1)
+abcd_sleep_field_interaction <- abcd_context %>%
+  filter(model == "abcd_sleep_risk", term == "field_index:sleep_risk") %>%
+  slice(1)
+abcd_bpm_internalising_contrast <- abcd_sensitivity_tests %>%
+  filter(outcome == "Age 15 youth BPM internalising") %>%
+  slice(1)
+abcd_bpm_attention_contrast <- abcd_sensitivity_tests %>%
+  filter(outcome == "Age 15 youth BPM attention") %>%
+  slice(1)
+mcs_balance_distress <- mcs_balance_comp %>%
+  filter(model == "Distress only") %>%
+  slice(1)
+mcs_balance_index <- mcs_balance_comp %>%
+  filter(model == "Balance index") %>%
+  slice(1)
+abcd_balance_stress <- abcd_balance_comp %>%
+  filter(model == "Stress only") %>%
+  slice(1)
+abcd_balance_index <- abcd_balance_comp %>%
+  filter(model == "Balance index") %>%
+  slice(1)
+abcd_primary_n <- abcd_primary_contrast$nobs[[1]]
 
 apa_table <- function(df, caption = NULL, digits = 3) {
   df %>%
@@ -533,21 +654,20 @@ h1, h2, h3, h4 {
 ```
 
 ::: {.lead-box}
-This document includes details about the cohort-specific operationalisation, weighting strategy, longitudinal models, moderation analyses, sensitivity analyses, and inferential limits for the cross-cohort study (across MCS and ABCD datasets) testing whether **motivational engagement** is a more informative prospective signal than **executive control / cognitive self-efficacy** for adolescent mental health outcomes.
+This document reports the state-anchored computational sensitivity analyses, cohort-specific operationalisation, weighting strategy, longitudinal models, empirical sensitivity analyses, and inferential limits for the project. The cohort component asks whether **motivational engagement** is a more informative prospective signal than **executive control / cognitive self-efficacy** for adolescent mental health outcomes; it does not estimate the computational parameters.
 :::
 
 # Overview
 
 ## Research question
 
-This supplement tests an indirect prediction from the companion theory in this project (see Notebooks folder in the same Github repo). The starting point is that mental health and the transition into psychopathology is a **dynamical process**. In the case of children and adolescents, for instance, behaviour changes which parts of the social and school environment are sampled (i.e., explored, engaged with), and the observations drawn from these sampled parts of the environment update beliefs about the world (i.e., internal models, cognitive schemata etc.), and finally those updated beliefs shape the next behavioural choice. This is a feedback loop that, under worsening conditions, can **shift from stable engagement to self-reinforcing withdrawal**.
+This supplement reports an observational consistency check motivated by the companion theory in this project (see the Notebooks folder in the same GitHub repository). The starting point is that mental health and the transition into psychopathology are dynamical processes. In children and adolescents, behaviour changes which parts of the social and school environment are sampled; observations from those environments update beliefs; and updated beliefs shape subsequent choices. The formal model shows how this feedback loop can shift from stable engagement to self-reinforcing withdrawal under worsening conditions.
 
-The project's Notebooks translate that idea into a specific empirical claim. Notebook 01 shows that a minimal active-inference system can generate abrupt shifts between behavioural states. Notebook 02 applies that result to adolescent psychopathology and predicts that transitions into and out of maladaptive states should depend more on the motivational value of engagement than on decisional precision alone. Notebook 03 adds a second prediction: balance measures, such as log-ratios of distress to wellbeing or motivation, may sometimes index transition-relevant position (in the phase diagram), although they cannot separate the underlying components. See more about these notebooks below.
+Notebook 01 shows that a minimal active-inference system can generate abrupt shifts between behavioural states. Notebook 02 applies that result to adolescent psychopathology and motivates a qualitative ordering between a preference-field manipulation and a policy-precision manipulation inside the model. The cohort measures do not estimate either quantity. Notebook 03 explores log-ratios of distress to wellbeing or motivation, but such questionnaire ratios are retained here only as descriptive nonlinear composites because the constituent scales are not policy probabilities and do not share a natural ratio metric.
 
 Therefore, the **central empirical question** is: *after accounting for baseline mental health problems and standard covariates, are later internalising and disengagement-related outcomes predicted more strongly by earlier motivation or engagement than by earlier executive-control competencies*?
 
-Throughout the supplement, `motivation/engagement` is used as the observational counterpart of the theoretical `preference field`: how worthwhile participation in ordinary life still feels. The corresponding control-related proxy is described as `executive-control` in the MCS analyses and as `cognitive-control` in the ABCD analyses, matching the local measurement framing while retaining the same link to `policy precision`: how consistently action can be selected and carried through once engagement is attempted. 
-(NOTE! These analyses do not estimate the latent active-inference quantities directly. They test whether the broad longitudinal ordering seen in MCS and ABCD is more consistent with a field-dominated than a precision-dominated developmental architecture.)
+Throughout the supplement, `motivation/engagement` denotes an engagement-related observational family and `executive-control` or `cognitive-control` denotes a performance-based control family. These are broad, many-to-one counterparts selected from the available cohort measures, not measurements of the theoretical preference field or policy precision. Their coefficient ordering can be compatible with the simulation result, but it cannot identify a field-dominated developmental architecture or exclude alternative explanations based on construct proximity, reliability, informant, or method variance.
 
 ## Theoretical companion notebooks
 
@@ -557,17 +677,17 @@ This supplement sits downstream of three theoretical notebooks in the **Series: 
 
 - **Notebook 02** gives that result a clinical interpretation in adolescent psychopathology and makes the main prediction used here, namely that recovery-relevant trajectories should be organised more strongly by the motivational value of engagement ($\Delta c$) than by decisional precision or self-efficacy alone ($\gamma$). 
 
-- **Notebook 03** then derives the balance-index prediction: log-ratio measures may track a transition-relevant phase-space coordinate, but they recover only a product term and therefore cannot identify the underlying components separately.
+- **Notebook 03** explores a log-ratio construction. In the present empirical work, questionnaire ratios are treated as descriptive nonlinear composites rather than as estimates of a phase-space coordinate.
 
-The role of the present supplement is not to recover those latent parameters from cohort data. It is to test whether the broad longitudinal patterns in MCS and ABCD are compatible with the empirical predictions generated by those notebooks.
+The role of the present supplement is not to recover latent parameters from cohort data. It asks whether a narrower prospective ordering of observed predictor families is present in MCS and ABCD and reports its substantial measurement and inferential limitations.
 
 ## Hypotheses
 
 1. Better motivation and engagement should predict lower later distress, less disengagement, and lower likelihood of persistence-related psychopathology outcomes.
 2. Motivation/engagement predictors should outperform executive-control predictors in the main longitudinal models, because the theory predicts that the value of re-engagement is the more central organising process.
-3. Family, peer, school, sleep, and deprivation-related variables should modify these pathways, showing where the main developmental signal is amplified or buffered by context.
-4. Genetic scores are tested as potential vulnerability modifiers.
-5. Balance indices such as $\psi = \log(\text{distress} / \text{wellbeing-or-motivation})$ may capture transition-relevant position efficiently, but that advantage is treated as empirical, outcome-specific, and not assumed in advance.
+3. Family, peer, school, sleep, and deprivation-related moderation is explored without causal interpretation and with explicit attention to multiplicity.
+4. Genetic scores are explored as potential vulnerability modifiers, not as active-inference parameters.
+5. Prespecified log-ratio composites such as $\psi = \log(\text{distress} / \text{wellbeing-or-motivation})$ are evaluated descriptively; they are not assumed to measure transition position.
 
 ## Variable strategy
 
@@ -593,14 +713,96 @@ overview_variable_table %>%
 !These analyses can support broad claims about developmental pathways into distress, persistence, withdrawal, and disengagement. They **cannot directly estimate** latent active-inference parameters, recover formal cusp geometry, establish mathematical early-warning signals, or prove path-asymmetric hysteresis!
 :::
 
-These limits are crucial to bear in mind because the imported theoretical language can otherwise sound stronger than the data warrant. The present analyses are indirect tests of developmental architecture. They ask whether ordinary cohort measures line up better with one broad ordering of processes than another. They do not show that any observed variable is itself `Δc`, `γ`, a posterior belief, or a memory-state parameter.
+These limits are crucial to bear in mind because the imported theoretical language can otherwise sound stronger than the data warrant. The present analyses are indirect tests of developmental architecture. They ask whether ordinary cohort measures line up better with one broad ordering of processes than another. They **do not** show that any observed variable is itself `Δc`, `γ`, a posterior belief, or a memory-state parameter.
 
-The most defensible claim, therefore, is deliberately narrow: if motivation/engagement measures show larger and more consistent prospective associations than executive-control measures, and if the coefficient difference is itself statistically reliable, then the cohort data are more compatible with the theory's central developmental emphasis. *That is the main message this supplement is designed to test.*
+The most defensible claim, therefore, is the following narrow one: if motivation/engagement measures show larger and more consistent prospective associations than executive-control measures, and if the coefficient difference is itself statistically reliable, then the cohort data are more compatible with the theory's central developmental emphasis. *That is the main message this supplement is designed to test.*
 
 ## Summary
 
 ::: {.summary-box}
 Section 1 frames the study in ordinary clinical-scientific language. The central comparison is not "motivation versus control" in an all-or-none sense, but whether motivational disengagement is the more central prospective signal. Any support for the theory depends on that direct ordering test and remains indirect and observational.
+:::
+
+# State-Anchored Simulation Sensitivity
+
+## Why this sensitivity was required
+
+The main recovery figures use a fixed protocol in which intervention occurs at trial 400, after 200 trials of a gradually worsening adversity schedule. At that intervention trial, policy precision is $\gamma=6$ and the preference field is $\Delta c=0$; the adverse floors ($\gamma=5$, $\Delta c=-0.15$) are not both reached until trial 600. Thus, the protocol quantity denoted $T_{ill}$ in the original figure labels is **elapsed adverse-schedule exposure**, not an observed duration of illness or a verified residence time in withdrawal.
+
+The state diagnostic used the same 100 seeds as the main four-condition recovery comparison. At the fixed intervention trial, median current $P(engaged)$ was `r sprintf("%.3f", median(fixed_schedule_state$p_engaged_at_intervention))` (IQR `r sprintf("[%.3f, %.3f]", quantile(fixed_schedule_state$p_engaged_at_intervention, .25), quantile(fixed_schedule_state$p_engaged_at_intervention, .75))`). Only `r percent(mean(fixed_schedule_state$p_engaged_at_intervention < .5), accuracy = 1)` of agents had current $P(engaged)<.50$, `r percent(mean(fixed_schedule_state$mean_p_engaged_prior_15 < .5), accuracy = 1)` had a prior-15-trial mean below .50, and `r percent(mean(fixed_schedule_state$order_parameter_z < 0), accuracy = 1)` had a negative cumulative order parameter. The fixed schedule therefore cannot be described as a sample in which every agent had consolidated in withdrawal.
+
+## Event-anchored protocol
+
+The additional analysis first allowed both adverse controls to reach their floors. Withdrawal was then verified by requiring latent $P(engaged)<.50$ for 30 consecutive trials. The field-versus-precision analysis imposed at least 200 further adverse-schedule trials and required both current and trailing-window $P(engaged)<.50$ at intervention. Each intervention condition branched from the same learned Dirichlet state and the same random-number-generator state for each agent, so the four conditions form a paired computational comparison rather than four unrelated ensembles.
+
+```{r verified-field-table}
+verified_field_summary %>%
+  mutate(
+    condition = recode(
+      condition,
+      "Restore gamma only" = "Restore policy precision only",
+      "Restore delta_c only" = "Restore preference field only",
+      "Paired delta_c advantage over gamma" = "Paired field advantage over precision"
+    )
+  ) %>%
+  select(
+    Condition = condition,
+    N = n_agents,
+    Median = median,
+    Q1 = q1,
+    Q3 = q3,
+    `Proportion above .50` = proportion_above_0_5,
+    `Proportion with positive paired advantage` = proportion_positive
+  ) %>%
+  apa_table(
+    caption = "Recovery after verified withdrawal. Values are late-window latent P(engaged), except for the final paired-difference row.",
+    digits = 3
+  )
+```
+
+After verified withdrawal, the central intervention ordering became stronger rather than weaker. Restoring the preference field alone yielded median late $P(engaged)=$ `r sprintf("%.3f", verified_field_summary$median[verified_field_summary$condition == "Restore delta_c only"])`, compared with `r sprintf("%.3f", verified_field_summary$median[verified_field_summary$condition == "Restore gamma only"])` after restoring policy precision alone. The paired field advantage had median `r sprintf("%.3f", verified_field_summary$median[verified_field_summary$condition == "Paired delta_c advantage over gamma"])` (IQR `r sprintf("[%.3f, %.3f]", verified_field_summary$q1[verified_field_summary$condition == "Paired delta_c advantage over gamma"], verified_field_summary$q3[verified_field_summary$condition == "Paired delta_c advantage over gamma"])`) and was positive for all 200 paired agents. Increasing precision alone reduced engagement in this adverse-field state because precision sharpens selection of whichever policy is already favoured. This is a model-internal result and is not an estimate of a cognitive treatment effect.
+
+## Duration and asymmetric-memory boundary condition
+
+The memory sensitivity repeated full-restoration simulations after 0, 50, 100, 200, or 400 additional adverse-schedule trials following verified withdrawal. Recovery summaries used 200 agents per cell. Minimum restored-field thresholds used a finer $\Delta c$ grid (step .005) and 120 agents per grid cell.
+
+```{r verified-memory-threshold-table}
+verified_threshold_summary %>%
+  mutate(
+    min_restored_delta_c = if_else(
+      abs(min_restored_delta_c) < 1e-10, 0, min_restored_delta_c
+    ),
+    condition = recode(
+      condition,
+      "Symmetric decay" = "Symmetric retention",
+      "Asymmetric mild" = "Mild retention asymmetry",
+      "Asymmetric strong" = "Strong retention asymmetry"
+    )
+  ) %>%
+  select(
+    `Post-verification adverse trials` = post_verification_adverse_trials,
+    Condition = condition,
+    `Minimum restored field` = min_restored_delta_c
+  ) %>%
+  pivot_wider(names_from = Condition, values_from = `Minimum restored field`) %>%
+  apa_table(
+    caption = "Event-anchored minimum restored preference field required for median late P(engaged) ≥ .50.",
+    digits = 3
+  )
+```
+
+The event-anchored analysis did **not** show a monotonic increase in recovery cost with additional post-verification trials. Under strong retention asymmetry, the minimum restored $Delta c$ values across 0, 50, 100, 200, and 400 additional trials were `r paste(sprintf("%.3f", verified_threshold_summary$min_restored_delta_c[verified_threshold_summary$condition == "Asymmetric strong"]), collapse = ", ")`; the mild-asymmetry values were likewise non-monotonic. Full-restoration late-window probabilities also remained high and did not decline monotonically with post-verification duration.
+
+This sensitivity establishes an important boundary condition. Strategy-specific retention is sufficient to produce an exposure-duration pattern within the original fixed schedule, but the present implementation does not establish that time spent after a verified withdrawal transition progressively raises the recovery threshold. The original pattern combines gradual control drift, evolving evidence, and elapsed exposure. It should therefore be interpreted as a **schedule-dependent theoretical effect**, not as evidence that clinical illness duration or verified withdrawal residence has been modelled.
+
+```{r verified-withdrawal-figure, fig.cap="State-anchored sensitivity analyses. (a) The fixed-schedule intervention is not a state-anchored withdrawn sample. (b) The preference-field advantage over policy precision persists after verified withdrawal. (c) Additional post-verification adverse trials do not produce a monotonic recovery-threshold increase under the tested retention asymmetries."}
+knitr::include_graphics("Python_code/Figs_psychopathology/fig_S6_verified_withdrawal.png")
+```
+
+## Summary
+
+::: {.summary-box}
+The field-versus-precision recovery ordering is robust to a strict state-anchored check. The duration claim is not: in the current architecture, the asymmetric-memory result is specific to the original adversity-exposure schedule and does not generalise to elapsed time after verified withdrawal. 
 :::
 
 # Preliminary Data Analysis Pipeline
@@ -609,7 +811,7 @@ Section 1 frames the study in ordinary clinical-scientific language. The central
 
 The two cohorts are used differently but with a common logic.
 
-- MCS spans ages 11, 14, 17, and 23 in the harmonised descriptive pipeline, drawing on parent-reported emotional or peer problems, adolescent school and engagement measures, decision-making indicators, sleep and family context, standalone distress and wellbeing measures in later sweeps, and local genetic scores (Polygenic Risk Scores, or PRS). The main inferential regressions are anchored at age 14, with the balance-index analyses using age 17 as the exposure wave.
+- MCS spans ages 11, 14, 17, and 23 in the harmonised descriptive pipeline, drawing on parent-reported emotional or peer problems, adolescent school and engagement measures, decision-making indicators, sleep and family context, standalone distress and wellbeing measures in later sweeps, and genetic scores (Polygenic Risk Scores, or PRS). The main inferential regressions are anchored at age 14, with the balance-index analyses using age 17 as the exposure wave.
 - ABCD contributes repeated childhood-to-adolescent waves, with sample flow shown across all available sessions. The main ABCD analyses stop at age 15 (`ses-05A`) to preserve a larger analytic sample; age 16 (`ses-06A`) can be reserved for sensitivity analyses (since in Release 6.1 currently the last wave is partial and has < half of its cohort members).
 
 For MCS, inferential models are survey-weighted using the weight from the exposure wave. In the local longitudinal family file, `FOVWT2` is the whole-UK weight for age-14 exposure models and `GOVWT2` is the whole-UK weight for age-17 exposure models. The same file also provides the stratum variable `PTTYPE2` and the fieldwork-point cluster variable `SPTN00`. This means that age-14 to age-17 models and age-14 to age-23 models can both be estimated with the appropriate age-14 survey design, while any future age-17 to age-23 models should use the age-17 weight.
@@ -647,7 +849,7 @@ abcd_attrition %>%
   apa_table(caption = "ABCD participant counts and adjacent-session participant retention across the available analytical sessions.", digits = 2)
 ```
 
-The figure above shows all available ABCD sessions, including age 16. The main inferential ABCD analyses in this supplement stop at age 15 (`ses-05A`) to retain a larger and more stable sample. The central lagged ABCD comparison therefore uses `r abcd_obj$baseline_session` to `r abcd_obj$followup_session`, which yields `r comma((abcd_obj$session_pairs %>% filter(baseline_session == abcd_obj$baseline_session, followup_session == abcd_obj$followup_session) %>% pull(complete_cases))[[1]])` complete predictive cases.
+The figure above shows all available ABCD sessions, including age 16. The main inferential ABCD analyses in this supplement stop at age 15 (`ses-05A`) to retain a larger and more stable sample. The central adjusted comparison therefore uses `r abcd_baseline_session` to `r abcd_followup_session`; its complete-case combined model includes `r comma(abcd_primary_n)` participants.
 
 ## Cohort-specific operationalisation
 
@@ -683,7 +885,7 @@ mcs_reliability %>%
 
 These reliability estimates support the motivation/engagement composite as a moderately coherent proxy scale. The primary MCS executive-control variable is a single quality-of-decision-making indicator, so internal-consistency coefficients are not applicable to that main proxy; delay aversion and word activity score are retained as alternative single-indicator sensitivity operationalisations.
 
-For MCS, cohort-member files were restricted to cohort member 1 so that only singletons and first-born children were retained consistently across sweeps; in the PRS file the equivalent restriction was `PNUM = 100`. The local PRS variables are available only for the White-European genetic subset released in the CLS genomics repository.
+For MCS, cohort-member files were restricted to cohort member 1 so that only singletons and first-born children were retained consistently across sweeps; in the PRS file the equivalent restriction was `PNUM = 100`. The released PRS variables are available only for the White-European genetic subset in the CLS genomics repository.
 
 ### ABCD variables
 
@@ -723,25 +925,27 @@ The main prospective test is nested. In each cohort we fit:
 - a baseline-plus-control-proxy model (`executive-control` in MCS; `cognitive-control` in ABCD);
 - a combined model containing both predictor families.
 
+Within each cohort, these four nested models are fitted to the common complete-case sample defined by the combined model, so their information criteria are compared on identical observations. The principal ordering test is the direct within-model contrast between the two coefficients in the combined model.
+
 If motivation/engagement truly carries the larger developmental signal, it should improve model fit more consistently, retain the larger combined-model coefficient, and that coefficient should be significantly larger than the paired control-proxy coefficient in a direct within-model comparison.
 
 ```{r model-compare}
 model_compare %>%
   rename(N = nobs, Missingness = missingness_handling) %>%
-  apa_table(caption = "Model comparison metrics for the main lagged analyses, including model N and missingness handling.", digits = 2)
+  apa_table(caption = "Model comparison metrics for the main lagged analyses. Within each cohort, all four nested models use the same complete-case sample. MCS AIC and BIC are design-based survey-model criteria; ABCD uses likelihood-based criteria.", digits = 2)
 ```
 
 ## Summary
 
 ::: {.summary-box}
-Section 2 describes the analytic flow. MCS spans ages 11 to 23 descriptively within one harmonised framework, but the inferential regressions are anchored on age-14 exposures except for the age-17 balance-index models; those inferential models use exposure-wave survey weights. ABCD sample flow is shown across all available sessions, but the main inferential analyses stop at age 15 so the core comparison is estimated on the larger `r abcd_obj$baseline_session` to `r abcd_obj$followup_session` sample.
+Section 2 describes the analytic flow. MCS spans ages 11 to 23 descriptively within one harmonised framework, but the inferential regressions are anchored on age-14 exposures except for the age-17 balance-index models; those inferential models use exposure-wave survey weights. ABCD sample flow is shown across all available sessions, but the main inferential analyses stop at age 15 so the core comparison is estimated on the larger `r abcd_baseline_session` to `r abcd_followup_session` sample.
 :::
 
 # Millennium Cohort Study
 
 ## MCS sample and measurement focus
 
-The MCS analyses use age 14 as the main predictive baseline because that sweep gives the strongest local combination of symptom, engagement, decision-making, and context measures. It includes parent-reported emotional and peer problems, school and social satisfaction items, school effort and interest, Cambridge Gambling Task indicators, a word-activity score, sleep latency, family conflict, peer-related trouble, and local genetic scores.
+The MCS analyses use age 14 as the main predictive baseline because that sweep provides the strongest available combination of symptom, engagement, decision-making, and context measures. It includes parent-reported emotional and peer problems, school and social satisfaction items, school effort and interest, Cambridge Gambling Task indicators, a word-activity score, sleep latency, family conflict, peer-related trouble, and genetic scores.
 
 Ages 11 and 14 use the SDQ internalising composite (`emotion + peer problems`), age 17 uses the standalone Kessler-6 psychological-distress measure (`GDCKESSL`), and age 23 uses the standalone Kessler-6 psychological-distress measure (`HDKESSLER6`). Age 17 wellbeing (`GDWEMWBS`) and the age 23 anxiety, depression, loneliness, and wellbeing measures are retained as secondary/additional outcomes.
 
@@ -830,7 +1034,7 @@ mcs_precision_proxy_table %>%
 
 ## Missing-data sensitivity: MI
 
-As a missing-data sensitivity analysis for the primary MCS finding, the same combined age-14 to age-17 model was re-estimated after multiple imputation using `m = 20` imputations. (The imputation object is cached in `outputs/derived/mcs_primary_mi_m20.rds`). Imputation was applied to the analysis variables under a MAR assumption, and each completed dataset was analysed with the same survey-weighted `svyglm`, with coefficients then pooled using Rubin's rules.
+As a missing-data sensitivity analysis for the primary MCS finding, the same combined age-14 to age-17 model was re-estimated after multiple imputation using `m = 20` imputations. Imputation was applied to the analysis variables under a MAR assumption, and each completed dataset was analysed with the same survey-weighted `svyglm`, with coefficients then pooled using Rubin's rules.
 
 ```{r mcs-mi-sensitivity}
 mcs_mi_coefs %>%
@@ -859,6 +1063,8 @@ The missing-data sensitivity preserves the same substantive question as the comp
 
 ## MCS context moderation
 
+These moderator analyses are exploratory extensions rather than direct tests of the active-inference model. They involve multiple coefficients across cohorts and measures, were not used to define the principal theoretical prediction, and are reported without causal interpretation. Nominal p values should be read as descriptive unless they survive the stated multiplicity correction.
+
 These moderation models retain the same age-14 predictor wave and the same age-14 adjustment set as the main prospective model. Each moderation analysis therefore asks whether an age-14 contextual exposure changes the strength of the age-14 motivation/engagement or executive-control association with age-17 distress, after adjustment for age-14 baseline distress, age, sex, `PTTYPE2` sampling stratum, and income quintile.
 
 Each moderation model is a survey-weighted Gaussian `svyglm` with age-17 distress as the standardised outcome and age-14 z-scored predictors, moderators, and covariates entered at the exposure wave.
@@ -877,7 +1083,7 @@ mcs_context %>%
 
 These moderators were chosen because the theory does not imply that motivation unfolds in a social vacuum. Family conflict, peer-related difficulty, and sleep problems are plausible background conditions that can either amplify or buffer the consequences of low motivation and disengagement. Sleep latency is especially useful here because it is both clinically interpretable and modifiable: if the motivation/distress association is stronger under poorer sleep initiation, that supports the more modest theoretical claim that so-called orthogonal influences may modulate the main pathway rather than replace it. In other words, sleep would matter because it changes how strongly low engagement translates into later problems.
 
-The most credible MCS context effects in this pass involve family conflict, sleep, and peer-related school trouble. That pattern suggests that the motivation/engagement pathway is not simply an individual trait pathway, but one shaped by interpersonal strain, physiological regulation, and social difficulty.
+The MCS context models yielded nominal interaction signals for sleep risk and peer-related school trouble, whereas the family-conflict interactions were not distinguishable from zero. Because these moderator analyses are exploratory and involve multiple comparisons, the estimates are reported as candidate contextual patterning rather than confirmatory evidence of moderation.
 
 ### Full model results
 
@@ -892,6 +1098,8 @@ full_results_table(
 ```
 
 ## MCS genetic-score moderation
+
+These moderator analyses are exploratory extensions rather than direct tests of the active-inference model. They involve multiple coefficients across cohorts and measures, were not used to define the principal theoretical prediction, and are reported without causal interpretation. Nominal p values should be read as descriptive unless they survive the stated multiplicity correction.
 
 This section retains a deliberately focused pair of exploratory moderation models. Depression PRS is included because it is the most clinically proximate inherited-liability score for the present framework, and cognition PRS is included as the closest available genetic analogue of the project's precision or executive-control family. Both models use age-14 behavioural predictors, age-17 distress as the outcome, the same age-14 sociodemographic adjustment set as above, and the age-14 survey design.
 
@@ -942,7 +1150,7 @@ mcs_sensitivity_table %>%
 
 Across these sensitivity models, the main question is whether the same ordering persists when the later outcome is not just psychological distress, but also wellbeing, anxiety, depression, or loneliness. These analyses are still observational and do not imply that all of these outcomes are interchangeable. Their role is narrower: to test whether the central ordering of predictor families is robust to outcome definition. 
 
-In this pass, the sensitivity results remain broadly aligned with the main MCS finding. Lower motivation/engagement at age 14 predicts more age-23 distress, anxiety, depression, and loneliness, and predicts lower wellbeing at ages 17 and 23. The direct coefficient-comparison tests remain statistically clear across these alternative outcomes, which strengthens confidence that the main MCS result is not an artefact of a single distress indicator.
+The sensitivity results remain broadly aligned with the main MCS finding. Lower motivation/engagement at age 14 predicts more age-23 distress, anxiety, depression, and loneliness, and predicts lower wellbeing at ages 17 and 23. The direct coefficient-comparison tests remain statistically clear across these alternative outcomes, reducing concern that the main MCS result is specific to a single distress indicator.
 
 ### Full model results
 
@@ -956,11 +1164,11 @@ full_results_table(
 )
 ```
 
-## MCS balance-index analyses
+## MCS exploratory balance-composite analysis
 
-This section tests the prediction from Notebook 03 that the balance index $\psi = \log(\text{distress} / \text{wellbeing})$, constructed from co-occurring age-17 Kessler psychological distress (`GDCKESSL`) and WEMWBS mental wellbeing (`GDWEMWBS`) measures, may identify adolescents who are closer to later transition into clinically meaningful psychopathology more efficiently than either component alone. Here that is operationalised as later probable depressive caseness rather than continuous symptom variation.
+This exploratory measurement analysis evaluates a prespecified nonlinear composite, $\psi = \log(\text{distress} / \text{wellbeing})$, constructed from co-occurring age-17 Kessler psychological distress (`GDCKESSL`) and WEMWBS mental wellbeing (`GDWEMWBS`) measures. It asks whether that transformation changes prediction of later probable depressive caseness relative to either component alone. Because the questionnaire scales are not policy probabilities and do not share a natural ratio metric, $\psi$ is not treated as a direct phase coordinate or as an estimate of $\gamma\Delta c$.
 
-Three single-predictor survey-weighted logistic `svyglm` models are compared: distress only, wellbeing only, and the balance index. The retained age-23 outcome is probable depressive case status (`HDPHQ2 >= 3`). Covariates are age 17 age together with sex, age-14 `PTTYPE2` sampling stratum, and age-14 income quintile, and the design uses the age-17 survey weight (`GOVWT2`) because age 17 is the exposure wave. This is not a strict incident-disorder design, because the same depression screen is not available at age 17; rather, it is a weighted prediction of later probable depressive caseness from the age-17 phase-position proxy.
+Three single-predictor survey-weighted logistic `svyglm` models are compared: distress only, wellbeing only, and the balance composite. The retained age-23 outcome is probable depressive case status (`HDPHQ2 >= 3`). Covariates are age-17 age together with sex, age-14 `PTTYPE2` sampling stratum, and age-14 income quintile, and the design uses the age-17 survey weight (`GOVWT2`) because age 17 is the exposure wave. This is not a strict incident-disorder design because the same depression screen is not available at age 17. The comparison is in-sample and descriptive; it is not a validation of a latent phase position.
 
 ### Descriptive summary
 
@@ -1001,25 +1209,42 @@ mcs_balance_aic %>%
   apa_table(caption = "Design-based fit comparison across the three single-predictor MCS logistic balance-index models for age-23 probable depressive caseness. AUC indexes discrimination, Brier score indexes overall probabilistic accuracy, and delta AIC is relative to the best-fitting model.", digits = 2)
 ```
 
-If the balance index shows the best overall mix of discrimination, calibration, and information-criterion fit for this probable depressive-case outcome, that supports the Notebook 03 prediction that the ratio carries transition-relevant information not fully captured by either component alone. The theoretical rationale remains the same: the ratio is not an arbitrary transformation, but the observable that the active-inference framework highlights as the closest empirical proxy to the combined phase-position term.
-
-In the present MCS analysis, the support is clean: **the balance index fits age-23 probable depressive caseness best among the three single-predictor models**. That is exactly the kind of result Notebook 03 motivates, namely that the ratio can sometimes retain clinically relevant transition signal more efficiently than either component on its own.
+The balance composite produced lower AIC than either component in this sample, but changes in discrimination and calibration were very small. Its AUC (`r sprintf("%.4f", mcs_balance_index$auc[[1]])`) was slightly lower than that of distress alone (`r sprintf("%.4f", mcs_balance_distress$auc[[1]])`), while its Brier score improved by approximately `r sprintf("%.4f", mcs_balance_distress$brier[[1]] - mcs_balance_index$brier[[1]])`. These findings do not establish a latent phase coordinate. They show only that a prespecified nonlinear combination can alter in-sample fit and should be evaluated with external validation and explicit scale assumptions.
 
 ## Summary
 
 ::: {.summary-box}
-The MCS analyses ask whether age-14 motivation/engagement or age-14 executive-control is the stronger predictor of later outcomes after adjustment for age-14 distress, age, sex, `PTTYPE2` sampling stratum, and income quintile. Using the age-14 survey design, the answer remains clearly in favour of motivation/engagement, and that ordering is supported by a direct coefficient-comparison test. Family conflict, sleep, and peer-related difficulty further shape that pathway, the focused genetic models retain depression and cognition polygenic risk scores as the two targeted exploratory moderators, and the sensitivity analyses extend the same question to separate later symptom and wellbeing outcomes, plus a same-wave age-14 MFQ check. The balance-index analyses additionally test whether $\psi = \log(\text{Kessler} / \text{WEMWBS})$ at age 17 carries transition-relevant information about later probable depressive caseness (Notebook 03).
+The MCS analyses ask whether age-14 motivation/engagement or age-14 executive-control is the stronger predictor of later outcomes after adjustment for age-14 distress, age, sex, `PTTYPE2` sampling stratum, and income quintile. Using the age-14 survey design, the ordering favours motivation/engagement and is supported by a direct coefficient-comparison test. Contextual and genetic-score moderation analyses are exploratory, involve multiple coefficients, and do not identify active-inference parameters. Sensitivity analyses extend the same observational comparison to separate later symptom and wellbeing outcomes, plus a same-wave age-14 MFQ check. The balance-composite analysis is retained as descriptive measurement work rather than as a validated test of phase position.
 :::
 
 # ABCD Study
+
+```{r abcd-family-cluster-status, results='asis'}
+if (abcd_primary_family_clustered) {
+  cat(
+    '<div class="summary-box"><strong>Family clustering:</strong> ',
+    'ABCD complete-case standard errors in this render are clustered by ',
+    '<code>ab_g_stc__design_id__fam</code>, the Release 6.1 family identifier.</div>'
+  )
+} else {
+  cat(
+    '<div class="limit-box"><strong>Family-clustering validation failed:</strong> ',
+    'the cached ABCD coefficient tables used in this render predate the family-',
+    'cluster correction. The updated pipeline now imports ',
+    '<code>ab_g_stc__design_id__fam</code> and computes family-cluster-robust ',
+    'standard errors. The licensed-data pipeline must be rerun before these ',
+    'ABCD inferential results are interpreted.</div>'
+  )
+}
+```
 
 ## ABCD sample and measurement focus
 
 The ABCD analyses centre on parent-reported CBCL internalising and withdrawn or depressed symptoms as the most defensible longitudinal outcome. Motivation/engagement is indexed primarily by school environment, school involvement, and school disengagement. Cognitive-control is indexed primarily by the NIH Toolbox Flanker score at `ses-02A`. For the balance-index analyses (see below), age-13 parent-reported CBCL stress (`mh_p_cbcl__strs_sum` at `ses-03A`) is paired with the age-13 youth-reported NIH Toolbox Positive Affect Items sum score (`mh_y_pai_sum`) to construct a theory-derived distress-to-positive-affect ratio.
 
-For sleep, the current analysis uses two repeated and clinically interpretable measures from the Munich Chronotype Questionnaire: sleep duration and social jetlag. They were chosen because they capture two distinct and relevant features of adolescent sleep risk, namely insufficient sleep and circadian misalignment, and because they are available repeatedly in the local extract. The current sleep-risk composite therefore represents shorter sleep together with greater social jetlag.
+For sleep, the analysis uses two repeated and clinically interpretable measures from the Munich Chronotype Questionnaire: sleep duration and social jetlag. They capture two distinct features of adolescent sleep risk—insufficient sleep and circadian misalignment—and have adequate coverage across the selected sessions. The sleep-risk composite therefore represents shorter sleep together with greater social jetlag.
 
-Only some context variables were estimable in the final ABCD moderation models at the chosen age window. Sleep and peer adversity were the most usable in what follows. (Other local ABCD candidates that could be added in a secondary analysis include family-environment measures, neighbourhood safety or social-context measures, peer victimisation indicators, perceived support or resilience measures, KSADS sleep-symptom variables, and additional linked school or neighbourhood exposures.) The present implementation (as below) prioritised repeated measures with clearer longitudinal alignment and acceptable coverage in the main analytic sessions. 
+Only sleep risk, area deprivation, and peer adversity met the coverage and variation criteria for the final ABCD moderation models at the selected age window. The same estimability criteria were applied before model fitting, prioritising measures with clear longitudinal alignment and adequate coverage in the main analytic sessions.
 
 All primary ABCD regression models use `ses-02A` predictors and `ses-05A` outcomes. The adjustment set is the same baseline session: `ses-02A` baseline outcome, age, sex, household income, parent education, area deprivation index percentile, and assessment site.
 
@@ -1071,7 +1296,7 @@ abcd_tests %>%
   apa_table(caption = "Direct coefficient-comparison test for the ABCD combined model. Negative values indicate that the motivation/engagement coefficient is more negative than the cognitive-control coefficient.", digits = 3)
 ```
 
-In the combined ABCD model, both predictor families contribute, and the motivation/engagement composite has the larger coefficient magnitude. With the expanded standard adjustment in place, the direct coefficient-comparison test is also conventionally significant in this cohort. Therefore, the ABCD cohort also supports the central ordering claim.
+In the combined ABCD model, both predictor families contribute, and the motivation/engagement composite has the larger coefficient magnitude. The family-cluster-robust direct contrast was `r sprintf("%.3f", abcd_primary_contrast$estimate_difference[[1]])` (*SE* = `r sprintf("%.3f", abcd_primary_contrast$std_error[[1]])`, *p* `r fmt_p_relation(abcd_primary_contrast$p_value[[1]])`). This smaller ABCD difference is directionally consistent with the prespecified proxy ordering observed in MCS, but it remains an observational comparison of measured predictor families rather than evidence that the active-inference mechanism itself has been identified.
 
 ### Full model results
 
@@ -1109,6 +1334,16 @@ abcd_precision_proxy_table %>%
 
 ## Missing-data sensitivity: FIML
 
+```{r abcd-fiml-cluster-status, results='asis'}
+if (!abcd_fiml_family_clustered) {
+  cat(
+    '<div class="limit-box"><strong>FIML validation failed:</strong> the aggregate FIML ',
+    'table does not document family-cluster-robust inference. Reproduce this ',
+    'sensitivity analysis with the licensed-data pipeline before interpreting its Wald test.</div>'
+  )
+}
+```
+
 As a missing-data sensitivity analysis for the primary ABCD finding, the same combined `ses-02A` to `ses-05A` regression was re-estimated using full-information maximum likelihood (FIML) in a saturated observed-variable structural equation model. Continuous predictors were entered on the same standardised scale as in the main model, site was represented with dummy variables, and the fitted covariate set matched the primary complete-case model. This sensitivity analysis addresses missingness without listwise deletion under a MAR assumption.
 
 ```{r abcd-fiml-sensitivity}
@@ -1134,7 +1369,7 @@ abcd_fiml_test %>%
   apa_table(caption = "Direct coefficient-comparison test for the ABCD FIML sensitivity model. The statistic column is a signed z-score (estimate ÷ SE); p is two-tailed.", digits = 3)
 ```
 
-The coefficient-comparison test under FIML is consistent with the complete-case result, confirming that the ordering is not an artefact of listwise deletion.
+The FIML analysis preserved the directional ordering and yielded a contrast *p* value of `r fmt_p(abcd_fiml_contrast$p_value[[1]])`. However, `lavaan` issued a small non-positive-definite covariance warning, and the result is therefore treated as a sensitivity check rather than confirmation.
 
 ## MCS-parity sensitivity: ABCD model without parent education
 
@@ -1183,9 +1418,11 @@ abcd_no_parented_test %>%
   )
 ```
 
-Removing parent education from the adjustment set has no meaningful effect on either primary coefficient (changes of < 0.001 in absolute magnitude) and leaves the coefficient-comparison test significant. This confirms that the ABCD ordering result does not depend on the additional SES control with no MCS counterpart. It is also worth noting that parent education was not a significant predictor of later internalising in the primary model after controlling for household income and area deprivation (*B* = 0.018, *SE* = 0.012, *p* = .125), consistent with the negligible perturbation observed here.
+Removing parent education from the adjustment set has no meaningful effect on either primary coefficient (changes of < 0.001 in absolute magnitude) and leaves the coefficient-comparison result materially unchanged. The ABCD proxy ordering is therefore not attributable to inclusion of this additional SES control with no MCS counterpart. Parent education itself was not associated with later internalising in the primary model after controlling for household income and area deprivation (*B* = `r sprintf("%.3f", abcd_parent_education$estimate[[1]])`, *SE* = `r sprintf("%.3f", abcd_parent_education$std_error[[1]])`, *p* `r fmt_p_relation(abcd_parent_education$p_value[[1]])`), consistent with the negligible perturbation observed here.
 
 ## ABCD context moderation
+
+These moderator analyses are exploratory extensions rather than direct tests of the active-inference model. They involve multiple coefficients across cohorts and measures, were not used to define the principal theoretical prediction, and are reported without causal interpretation. Nominal p values should be read as descriptive unless they survive the stated multiplicity correction.
 
 These moderation models retain the same `ses-02A` predictor wave and the same `ses-02A` adjustment set as the main ABCD model. Each moderator is therefore evaluated as a baseline contextual influence on the path from `ses-02A` motivation/engagement or cognitive-control to `ses-05A` internalising.
 
@@ -1203,7 +1440,7 @@ abcd_context %>%
   apa_table(caption = "ABCD context moderation results.", digits = 3)
 ```
 
-In this pass, the clearest ABCD moderation signal is sleep-related. Sleep is a plausible modulator of how low motivation and disengagement translate into later symptoms, so this is important. In the theory's language, that makes sleep a candidate field-modulating influence; in ordinary clinical language, it means that impaired physiological regulation may strengthen the pathway from reduced engagement to later distress. Family and neighbourhood context variables are present in the broader extract and remain worth extending, but sleep is the cleanest moderation signal in the current baseline-follow-up window.
+None of the ABCD interaction terms met the conventional .05 threshold after family-cluster-robust inference. The motivation/engagement-by-sleep-risk estimate was the closest (*p* `r fmt_p_relation(abcd_sleep_field_interaction$p_value[[1]])`), whereas the corresponding cognitive-control interaction and the area-deprivation and peer-adversity interactions were not distinguishable from zero. These estimates are therefore treated as exploratory and do not establish contextual moderation.
 
 ### Full model results
 
@@ -1236,7 +1473,7 @@ abcd_sensitivity_table %>%
   apa_table(caption = "ABCD sensitivity analyses using youth-reported Brief Problem Monitor internalising and attention outcomes. Coefficient-comparison p values test whether the motivation/engagement coefficient differs from the cognitive-control coefficient within the same combined model.", digits = 3)
 ```
 
-These sensitivity analyses are useful because they test whether the ordering of predictor families is limited to one reporter and one symptom frame. In this pass, the youth BPM internalising outcome shows the same ordering clearly, whereas the youth BPM attention outcome remains more tentative. They therefore complement the parent-report results rather than replacing them.
+These sensitivity analyses test whether the ordering of predictor families is limited to one reporter and one symptom frame. Both the youth BPM internalising and attention outcomes show the same coefficient ordering, with family-cluster-robust direct comparison tests of *p* `r fmt_p_relation(abcd_bpm_internalising_contrast$p_value[[1]])` and *p* `r fmt_p_relation(abcd_bpm_attention_contrast$p_value[[1]])`, respectively. They provide cross-reporter sensitivity checks rather than replacements for the prespecified parent-report outcome.
 
 ### Full model results
 
@@ -1252,11 +1489,11 @@ full_results_table(
 )
 ```
 
-## ABCD balance-index analyses
+## ABCD exploratory balance-composite analysis
 
-This section tests the same Notebook 03 prediction in the ABCD cohort using the focal age-13 balance specification. Here the balance index is constructed as $\psi = \log(\text{CBCL stress} / \text{Positive affect})$, using `ses-03A` parent-reported CBCL stress (`mh_p_cbcl__strs_sum`) as the distress-related component and the `ses-03A` youth-reported NIH Toolbox Positive Affect Items sum score (`mh_y_pai_sum`) as the protective denominator. The retained binary outcome is transition into probable internalising caseness, operationalised as `ses-05A` CBCL internalising `T >= 64` among adolescents below that threshold at `ses-03A`.
+This exploratory measurement analysis evaluates the focal age-13 composite $\psi = \log(\text{CBCL stress} / \text{Positive affect})$, using `ses-03A` parent-reported CBCL stress (`mh_p_cbcl__strs_sum`) and the `ses-03A` youth-reported NIH Toolbox Positive Affect Items sum score (`mh_y_pai_sum`). The retained binary outcome is transition into probable internalising caseness, operationalised as `ses-05A` CBCL internalising `T >= 64` among adolescents below that threshold at `ses-03A`. The comparison asks whether this prespecified nonlinear transformation changes in-sample prediction relative to either component alone; it does not treat the questionnaire ratio as a direct phase coordinate.
 
-The positive-affect denominator follows the ABCD scoring documentation: `mh_y_pai_sum` is the complete-case sum of nine youth-report items (`mh_y_pai_001` to `mh_y_pai_009`) with `777` and `999` excluded. In the local `ses-03A` data that denominator showed good internal consistency (alpha = `r sprintf('%.2f', abcd_positive_affect_reliability$alpha_std[[1]])`, omega = `r sprintf('%.2f', abcd_positive_affect_reliability$omega_total[[1]])`). The pairing of CBCL stress (a parent-reported measure of the child's distress and stress reactivity) with positive affect (a youth-reported measure of positive emotional state) is not identical to the MCS pairing of Kessler distress with WEMWBS wellbeing, but it preserves the same theoretical structure: the ratio of an avoidance-related observable to a protective or appetitive observable, which the theory identifies as the relevant phase-space coordinate. The fitted models are ordinary logistic `glm` models with the same `ses-03A` demographic and socioeconomic covariates as the main ABCD analysis, and all retained models also adjust for baseline internalising severity to keep the comparison anchored to prior symptom burden. The model additionally restricts the baseline sample to adolescents below the threshold so the focus stays on transition rather than cross-sectional severity alone.
+The positive-affect denominator follows the ABCD scoring documentation: `mh_y_pai_sum` is the complete-case sum of nine youth-report items (`mh_y_pai_001` to `mh_y_pai_009`) with `777` and `999` excluded. At `ses-03A`, that denominator showed good internal consistency (alpha = `r sprintf('%.2f', abcd_positive_affect_reliability$alpha_std[[1]])`, omega = `r sprintf('%.2f', abcd_positive_affect_reliability$omega_total[[1]])`). The pairing is cross-informant and is not equivalent to the MCS pairing of Kessler distress with WEMWBS wellbeing. The fitted models are logistic regressions with the same `ses-03A` demographic and socioeconomic covariates as the main ABCD analysis, and all retained models also adjust for baseline internalising severity; coefficient uncertainty and tests use family-cluster-robust standard errors. The baseline sample is restricted to adolescents below the caseness threshold so the focus stays on later transition rather than cross-sectional severity alone.
 
 ### Descriptive summary
 
@@ -1297,12 +1534,12 @@ abcd_balance_aic %>%
   apa_table(caption = "ABCD fit comparison across the three single-predictor logistic balance-index models for later probable internalising caseness.", digits = 2)
 ```
 
-In the focal ABCD balance analysis, the pattern is clean and supportive. For later probable internalising caseness, the age-13 balance index performs best of the three single-predictor models, with the lowest AIC and the highest AUC, outperforming both stress alone and positive affect alone. That places the ABCD result in the same qualitative direction as the MCS result: in both cohorts, the log-ratio carries transition-relevant information that neither component captures quite as efficiently on its own.
+The balance composite produced lower AIC than either component in this sample, but changes in discrimination and calibration were very small. Relative to stress alone, its AUC increased by approximately `r sprintf("%.3f", abcd_balance_index$auc[[1]] - abcd_balance_stress$auc[[1]])` and its Brier score improved by approximately `r sprintf("%.4f", abcd_balance_stress$brier[[1]] - abcd_balance_index$brier[[1]])`. These findings do not establish a latent phase coordinate. They show only that a prespecified nonlinear combination can alter in-sample fit and should be evaluated with external validation and explicit scale assumptions.
 
 ## Summary
 
 ::: {.summary-box}
-The ABCD analyses test whether the same ordering of predictor families appears in an independent cohort with different measures. The main models use `ses-02A` predictors and covariates with `ses-05A` outcomes, and with that adjustment set the direct coefficient-comparison test now supports the ordering claim in the main parent-report model. Sleep remains the clearest contextual moderator of that pathway, and the BPM sensitivity analyses provide an additional youth-report check, with clearer support for BPM internalising than for BPM attention. The focal balance-index analysis then shows that the age-13 ratio $\psi = \log(\text{CBCL stress}_{\text{ses-03A}} / \text{Positive affect}_{\text{ses-03A}})$ performs best for later probable internalising caseness by `ses-05A`, supporting the balance-index prediction in ABCD as well as in MCS.
+The ABCD analyses ask whether the same observational ordering of predictor families appears in an independent cohort with different measures. The main parent-report model is directionally consistent with that ordering, although the coefficient difference is substantially smaller than in MCS. Context moderation is exploratory and the BPM sensitivity analyses provide an additional youth-report check. The balance-composite analysis is descriptive measurement work: its in-sample AIC was lower, but improvements in AUC and calibration were very small and do not validate a latent phase coordinate.
 :::
 
 # Cross-Cohort Synthesis
@@ -1314,24 +1551,24 @@ claim_summary %>%
   apa_table(caption = "Cross-cohort summary of the main theory-relevant claims.", digits = 2)
 ```
 
-**The strongest cross-cohort pattern is convergent in both cohorts.** MCS supports the ordering in which age-14 motivation and engagement are more central than age-14 executive-control for later distress after adjustment for age-14 demographic and socioeconomic covariates, and ABCD now does the same for age-12 cognitive-control after adjustment for baseline demographic, socioeconomic, neighbourhood, and site covariates in the main parent-report model.
+**The primary observational comparison has the same direction in both cohorts, with different strength.** In MCS, age-14 motivation and engagement showed a clearly larger adjusted association with later distress than age-14 executive-control. In ABCD, the corresponding age-12 motivation/engagement coefficient was also larger in magnitude than the cognitive-control coefficient after baseline demographic, socioeconomic, neighbourhood, and site adjustment, but the between-coefficient difference was smaller and only modestly separated from zero. This constitutes cross-cohort directional consistency in proxy ordering, not direct evidence that either cohort identifies the model's latent parameters or transition mechanism.
 
-A short interpretive point is important for the balance indices. These ratios should not be treated as universal superior predictors of all later outcomes. The current results are better read as evidence that ratio-type measures can carry transition-relevant information when the endpoint is clinically proximate and the numerator and denominator are measured in a defensible developmental window. Their usefulness should therefore be tested rather than assumed in each cohort.
+A short interpretive point is important for the balance composites. Questionnaire ratios are not preserved under unknown monotone transformations and the constituent scales do not share a natural ratio metric. Their modest in-sample fit differences therefore constitute exploratory measurement results, not estimates of a phase coordinate. Their usefulness and scale assumptions should be tested with external validation rather than inferred from these samples.
 
 ## Interpretation and limits
 
-This convergence is meaningful, but NOTE THE FOLLOWING!
+The following interpretive limits are important:
 
 - The cohorts do not measure latent active-inference parameters directly.
 - The outcomes are developmental distress proxies, not formal state-transition observables.
 - The motivation/engagement versus executive-control comparison is a theory-guided ordering test, not a claim that one domain matters and the other does not.
-- The MCS balance-index analyses use age-17 predictors for age-23 depressive outcomes, which is a different analytical window from the main age-14-to-age-17 models. The two sets of analyses test different but complementary predictions.
+- The MCS balance-composite analysis uses age-17 predictors for age-23 depressive outcomes, which is a different analytical window from the main age-14-to-age-17 models and is reported as exploratory measurement work.
 - The ABCD balance-index analysis pairs a parent-reported stress measure with a youth-reported positive-affect denominator, so this cross-informant ratio still needs independent psychometric evaluation.
 
 ## Summary
 
 ::: {.summary-box}
-Across MCS and ABCD, the study provides indirect observational support for the narrower claim that motivation/engagement-related processes may be more central than executive-control-related processes in MCS and cognitive-control-related processes in ABCD for persistence- and recovery-relevant developmental pathways. The models make their adjustment sets explicit and retain the same broad conclusion after standard demographic and socioeconomic covariate adjustment. That support remains strongest and most extensive in the survey-weighted MCS analyses, but it is also statistically supported in the main adjusted ABCD model. The balance-index analyses provide a further, theory-derived test: whether log-ratio measures constructed from distress and wellbeing in MCS, and from stress and positive affect in ABCD, carry additional transition-relevant information for later clinically relevant outcomes beyond either component alone.
+Across MCS and ABCD, the primary empirical result is an observational ordering of engagement-related and cognitive-control predictor families, not a fit of the active-inference model. The ordering is strongest in the survey-weighted MCS analyses and smaller in the main adjusted ABCD model. Contextual and genetic-score moderators are exploratory extensions. The balance-composite analyses show modest in-sample fit changes but do not establish a latent phase coordinate or an active-inference mechanism.
 :::
 
 # Appendix A: STROBE Checklist {-}

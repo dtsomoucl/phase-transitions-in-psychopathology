@@ -4,7 +4,7 @@ main.py — Central orchestrator for the psychopathology phase-transition projec
 Runs all simulation scripts in sequence and produces exactly the figures that
 back up the claims in the analysis notebooks.
 
-Figures produced (10 total)
+Figures produced (11 total)
 ---------------------------
 Step 1 — Onset dynamics (sim_psychopathology.py)
   fig_P2_onset_revised.png        Ensemble, schedule panels, quasistatic FPs,
@@ -38,10 +38,16 @@ Step 5 — Asymmetric memory extension (step5_asymmetric_memory.py)
   fig_S5_asymmetric_memory.png    Strategy-specific retention creates genuine path
                                    asymmetry (with IQR bands; n=150 per cell).
 
+Step 6 — State-anchored recovery sensitivity (step6_verified_withdrawal.py)
+  fig_S6_verified_withdrawal.png  Diagnoses the fixed-schedule intervention state,
+                                   repeats the paired recovery comparison after
+                                   verified withdrawal, and tests post-verification
+                                   duration under symmetric/asymmetric retention.
+
 Empirical bridge (empirical_bridge.py)
-  fig_S_bridge_empirical.png      Synthetic internal consistency check:
+  fig_S_bridge_empirical.png      Synthetic calibration demonstration:
                                    field-dominant DGP calibrated to MCS
-                                   coefficients; balance vs component classifiers.
+                                   coefficients; not independent evidence.
 
 Figures retained as callable functions but NOT produced here
 ------------------------------------------------------------
@@ -67,8 +73,7 @@ import sys
 import time
 
 ### DT --> Resolve repository-root paths so the main entrypoint can live
-### DT --> alongside SOM_Empirical_Results.Rmd while still importing the
-### DT --> simulation modules from Python_code/.
+### alongside SOM_Empirical_Results.Rmd while still importing the simulation modules from Python_code/.
 ROOT = Path(__file__).resolve().parent
 PYTHON_CODE_DIR = ROOT / "Python_code"
 FIG_DIR = PYTHON_CODE_DIR / "Figs_psychopathology"
@@ -141,7 +146,12 @@ def main():
     if not run_step("Step 5", step5_asymmetric_memory.run_all):
         errors.append("Step 5: step5_asymmetric_memory")
 
-    separator("Empirical bridge: synthetic consistency check (empirical_bridge.py)")
+    separator("Step 6: State-anchored recovery sensitivity (step6_verified_withdrawal.py)")
+    import step6_verified_withdrawal
+    if not run_step("Step 6", step6_verified_withdrawal.run_all):
+        errors.append("Step 6: step6_verified_withdrawal")
+
+    separator("Empirical bridge: synthetic calibration demonstration (empirical_bridge.py)")
     import empirical_bridge
     if not run_step("Empirical bridge", empirical_bridge.run_all):
         errors.append("Empirical bridge")
@@ -149,7 +159,7 @@ def main():
     separator("Summary")
     elapsed_total = time.time() - t_total
 
-    ### DT --> Check which of the 10 expected figures were actually created.
+    ### DT --> Check which of the 11 expected figures were actually created.
     expected_figures = [
         "fig_P2_onset_revised.png",
         "fig_P_flags_revised.png",
@@ -160,6 +170,7 @@ def main():
         "fig_S3_combined.png",
         "fig_D1_decay_hysteresis.png",
         "fig_S5_asymmetric_memory.png",
+        "fig_S6_verified_withdrawal.png",
         "fig_S_bridge_empirical.png",
     ]
 
