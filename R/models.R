@@ -122,25 +122,26 @@ fit_trajectory_model <- function(data, id_var, time_var, outcome_var) {
   fit
 }
 
-simple_svy_metrics <- function(model, model_name) {
+simple_svy_metrics <- function(model, model_name, maximal_model = NULL) {
   if (is.null(model)) {
     return(tibble(model = model_name, nobs = NA_real_, aic = NA_real_, bic = NA_real_, logLik = NA_real_))
   }
   model_nobs <- nrow(model$model)
   model_aic <- extract_model_aic(model)
-  model_loglik_obj <- tryCatch(logLik(model), error = function(e) NA)
-  model_loglik <- tryCatch(as.numeric(model_loglik_obj), error = function(e) NA_real_)
-  model_k <- tryCatch(attr(model_loglik_obj, "df"), error = function(e) NULL) %||% length(coef(model))
-  model_bic <- tryCatch(as.numeric(BIC(model)[1]), error = function(e) NA_real_)
-  if (!is.finite(model_bic) && is.finite(model_loglik) && is.finite(model_nobs) && is.finite(model_k)) {
-    model_bic <- as.numeric(-2 * model_loglik + log(model_nobs) * model_k)
+  model_bic <- if (is.null(maximal_model)) {
+    NA_real_
+  } else {
+    tryCatch(
+      as.numeric(stats::BIC(model, maximal = maximal_model)[["BIC"]]),
+      error = function(e) NA_real_
+    )
   }
   tibble(
     model = model_name,
     nobs = model_nobs,
     aic = model_aic,
     bic = model_bic,
-    logLik = model_loglik
+    logLik = NA_real_
   )
 }
 
@@ -162,7 +163,7 @@ tidy_svy_summary <- function(model, model_name) {
     )
 }
 
-coefficient_difference_test <- function(model, term_a, term_b, model_name, cohort = NA_character_, outcome = NA_character_) {
+coefficient_difference_test <- function(model, term_a, term_b, model_name, cohort = NA_character_, outcome = NA_character_, vcov_matrix = NULL, df_override = NULL) {
   out_template <- tibble(
     cohort = cohort,
     outcome = outcome,
@@ -179,7 +180,7 @@ coefficient_difference_test <- function(model, term_a, term_b, model_name, cohor
   }
 
   beta <- coef(model)
-  vcv <- vcov(model)
+  vcv <- vcov_matrix %||% vcov(model)
   if (!all(c(term_a, term_b) %in% names(beta))) {
     return(out_template)
   }
@@ -188,7 +189,7 @@ coefficient_difference_test <- function(model, term_a, term_b, model_name, cohor
   diff_variance <- max(vcv[term_a, term_a] + vcv[term_b, term_b] - 2 * vcv[term_a, term_b], 0)
   diff_se <- sqrt(diff_variance)
   diff_stat <- if (isTRUE(diff_se > 0)) diff_estimate / diff_se else NA_real_
-  diff_df <- suppressWarnings(tryCatch(df.residual(model), error = function(e) NA_real_))
+  diff_df <- df_override %||% suppressWarnings(tryCatch(df.residual(model), error = function(e) NA_real_))
   diff_p <- if (is.na(diff_stat)) {
     NA_real_
   } else if (is.na(diff_df) || is.infinite(diff_df)) {
@@ -371,8 +372,33 @@ fit_abcd_models <- function(abcd) {
       parent_education_z = zscore(parent_education),
       baseline_age_z = zscore(baseline_age),
       neighborhood_risk_z = zscore(neighborhood_risk),
+      family_cluster = if_else(
+        is.na(family_id) | as.character(family_id) == "",
+        paste0("singleton_", participant_id),
+        as.character(family_id)
+      ),
       site = as.factor(site)
     )
+
+  ### DT --> ABCD recruits siblings/twins, so inferential standard errors use
+  ### DT --> the Release 6.1 family identifier. Missing IDs, if any, are treated
+  ### DT --> as participant-specific singleton clusters rather than discarded.
+  clustered_inference <- function(model, data) {
+    model_rows <- suppressWarnings(as.integer(rownames(model$model)))
+    if (length(model_rows) != stats::nobs(model) || anyNA(model_rows)) {
+      stop("Could not align ABCD family clusters to the fitted model rows.")
+    }
+    clusters <- data$family_cluster[model_rows]
+    n_clusters <- dplyr::n_distinct(clusters)
+    if (n_clusters < 2) {
+      stop("ABCD family-clustered inference requires at least two clusters.")
+    }
+    list(
+      vcov = sandwich::vcovCL(model, cluster = clusters, type = "HC1"),
+      df = n_clusters - 1,
+      n_clusters = n_clusters
+    )
+  }
 
   build_abcd_covariate_terms <- function(data, baseline_var) {
     terms <- c(baseline_var, "baseline_age_z")
@@ -387,16 +413,27 @@ fit_abcd_models <- function(abcd) {
   fit_linear_comparison <- function(data, outcome_var, baseline_var, outcome_label) {
     covariate_terms <- build_abcd_covariate_terms(data, baseline_var)
     f0 <- as.formula(paste0(outcome_var, " ~ ", covariate_terms))
-    m0 <- lm(f0, data = data)
+    f3 <- update(f0, . ~ . + field_index + precision_index)
+    common_vars <- all.vars(f3)
+    comparison_data <- data %>%
+      filter(if_all(all_of(common_vars), ~ !is.na(.)))
+
+    m0 <- lm(f0, data = comparison_data)
     m1 <- update(m0, . ~ . + field_index)
     m2 <- update(m0, . ~ . + precision_index)
     m3 <- update(m0, . ~ . + field_index + precision_index)
+    clustered <- list(
+      base = clustered_inference(m0, comparison_data),
+      field = clustered_inference(m1, comparison_data),
+      precision = clustered_inference(m2, comparison_data),
+      combined = clustered_inference(m3, comparison_data)
+    )
     model_info <- build_model_info(
       list(base = m0, field = m1, precision = m2, combined = m3),
       outcome = outcome_label,
       cohort = "ABCD",
       family = "primary",
-      missingness_handling = "Complete-case analysis"
+      missingness_handling = "Complete-case analysis on a common comparison sample; family-cluster-robust standard errors"
     )
 
     list(
@@ -410,10 +447,10 @@ fit_abcd_models <- function(abcd) {
         mutate(outcome = outcome_label, .before = 1) %>%
         attach_model_info(model_info),
       coefficients = bind_rows(
-        simple_coef_table(m0, "base"),
-        simple_coef_table(m1, "field"),
-        simple_coef_table(m2, "precision"),
-        simple_coef_table(m3, "combined")
+        simple_coef_table(m0, "base", clustered$base$vcov, clustered$base$df),
+        simple_coef_table(m1, "field", clustered$field$vcov, clustered$field$df),
+        simple_coef_table(m2, "precision", clustered$precision$vcov, clustered$precision$df),
+        simple_coef_table(m3, "combined", clustered$combined$vcov, clustered$combined$df)
       ) %>%
         mutate(outcome = outcome_label, .before = 1) %>%
         attach_model_info(model_info),
@@ -423,7 +460,9 @@ fit_abcd_models <- function(abcd) {
         term_b = "precision_index",
         model_name = "combined",
         cohort = "ABCD",
-        outcome = outcome_label
+        outcome = outcome_label,
+        vcov_matrix = clustered$combined$vcov,
+        df_override = clustered$combined$df
       ) %>%
         attach_model_info(model_info %>% filter(model == "combined")),
       model_info = model_info
@@ -450,7 +489,7 @@ fit_abcd_models <- function(abcd) {
       estimate_difference = NA_real_,
       coefficient_test_p = NA_real_,
       nobs = complete_n,
-      missingness_handling = "Complete-case analysis",
+      missingness_handling = "Complete-case analysis; family-cluster-robust standard errors",
       status = if (complete_n < min_complete_n) {
         paste0("Not estimable: fewer than ", min_complete_n, " complete cases for adjusted model")
       } else {
@@ -507,11 +546,14 @@ fit_abcd_models <- function(abcd) {
       "field_index:", mod_var, "|", mod_var, ":field_index|",
       "precision_index:", mod_var, "|", mod_var, ":precision_index"
     )
-    full <- simple_coef_table(fit, paste0("abcd_", mod_var)) %>%
+    clustered <- clustered_inference(fit, dat)
+    full <- simple_coef_table(
+      fit, paste0("abcd_", mod_var), clustered$vcov, clustered$df
+    ) %>%
       mutate(
         outcome = "Age 15 parent-reported internalising",
         nobs = extract_model_nobs(fit),
-        missingness_handling = "Complete-case analysis",
+        missingness_handling = "Complete-case analysis; family-cluster-robust standard errors",
         .before = 1
       )
     list(
@@ -573,15 +615,15 @@ fit_abcd_models <- function(abcd) {
       filter(model == "combined", term %in% c("field_index", "precision_index")),
     sensitivity_full = map_dfr(sensitivity_results, ~ .x$coefficients %>% filter(model == "combined")),
     sensitivity_tests = map_dfr(sensitivity_results, "coefficient_tests"),
-    ### DT ---> Card Sort (crdst) and List Sorting (lswmt) had only 5 and 14 valid
-    ### DT ---> cases respectively at ses-02A and were replaced with variables that
-    ### DT ---> have adequate ses-02A coverage (~8 000 and ~7 300 valid cases).
+    ### DT --> Pattern Comparison and the Crystallized composite provide adequate
+    ### DT --> ses-02A coverage for the cognitive-control-proxy sensitivities;
+    ### DT --> Card Sort and List Sorting have insufficient coverage at this wave.
     precision_proxy_sensitivity = bind_rows(
       summarise_abcd_precision_proxy(d, "precision_processing_speed_index", "Pattern Comparison Processing Speed"),
       summarise_abcd_precision_proxy(d, "precision_crystallized_index",     "NIH Toolbox Crystallized composite")
     ),
     primary_demographics = primary_demographics,
-    covariate_note = "ABCD models adjust for baseline outcome, baseline age, sex, household income, parent education, area deprivation index percentile, and assessment site."
+    covariate_note = "ABCD models adjust for baseline outcome, baseline age, sex, household income, parent education, area deprivation index percentile, and assessment site; standard errors are clustered by Release 6.1 family identifier."
   )
 }
 
@@ -665,25 +707,35 @@ fit_mcs_models <- function(mcs) {
     f2 <- update(f0, . ~ . + precision_index)
     f3 <- update(f0, . ~ . + field_index + precision_index)
 
-    m0 <- fit_svy_model(f0, data)
-    m1 <- fit_svy_model(f1, data)
-    m2 <- fit_svy_model(f2, data)
-    m3 <- fit_svy_model(f3, data)
+    common_vars <- all.vars(f3)
+    comparison_data <- data %>%
+      filter(
+        if_all(all_of(common_vars), ~ !is.na(.)),
+        !is.na(analysis_weight_uk),
+        !is.na(design_psu),
+        !is.na(design_stratum),
+        analysis_weight_uk > 0
+      )
+
+    m0 <- fit_svy_model(f0, comparison_data)
+    m1 <- fit_svy_model(f1, comparison_data)
+    m2 <- fit_svy_model(f2, comparison_data)
+    m3 <- fit_svy_model(f3, comparison_data)
     model_info <- build_model_info(
       list(base = m0, field = m1, precision = m2, combined = m3),
       outcome = outcome_label,
       cohort = "MCS",
       family = "primary",
-      missingness_handling = "Complete-case analysis"
+      missingness_handling = "Complete-case analysis on a common comparison sample"
     )
 
     list(
       models = list(base = m0, field = m1, precision = m2, combined = m3),
       metrics = bind_rows(
-        simple_svy_metrics(m0, "base"),
-        simple_svy_metrics(m1, "field"),
-        simple_svy_metrics(m2, "precision"),
-        simple_svy_metrics(m3, "combined")
+        simple_svy_metrics(m0, "base", maximal_model = m3),
+        simple_svy_metrics(m1, "field", maximal_model = m3),
+        simple_svy_metrics(m2, "precision", maximal_model = m3),
+        simple_svy_metrics(m3, "combined", maximal_model = m3)
       ) %>%
         mutate(outcome = outcome_label, .before = 1) %>%
         attach_model_info(model_info),
@@ -1082,6 +1134,12 @@ fit_mcs_primary_mi_sensitivity <- function(mcs, cache_path, m = 20) {
 }
 
 fit_abcd_primary_fiml_sensitivity <- function(abcd) {
+  if (!"family_id" %in% names(abcd$predictive)) {
+    stop(
+      "ABCD family_id is absent from the analysis cache. Rebuild the cache from ",
+      "Release 6.1 ab_g_stc__design_id__fam before rerunning clustered FIML."
+    )
+  }
   d <- abcd$predictive %>%
     mutate(
       sex_z = zscore(sex),
@@ -1089,6 +1147,11 @@ fit_abcd_primary_fiml_sensitivity <- function(abcd) {
       parent_education_z = zscore(parent_education),
       baseline_age_z = zscore(baseline_age),
       neighborhood_risk_z = zscore(neighborhood_risk),
+      family_cluster = if_else(
+        is.na(family_id) | as.character(family_id) == "",
+        paste0("singleton_", participant_id),
+        as.character(family_id)
+      ),
       site = as.character(site)
     )
 
@@ -1111,7 +1174,7 @@ fit_abcd_primary_fiml_sensitivity <- function(abcd) {
   }
 
   lavaan_data <- bind_cols(
-    d %>% select(followup_internalising_z, all_of(core_terms)),
+    d %>% select(family_cluster, followup_internalising_z, all_of(core_terms)),
     if (!is.null(site_matrix)) as_tibble(site_matrix) else tibble()
   )
 
@@ -1139,7 +1202,8 @@ fit_abcd_primary_fiml_sensitivity <- function(abcd) {
     missing = "fiml",
     fixed.x = FALSE,
     meanstructure = TRUE,
-    estimator = "MLR"
+    estimator = "MLR",
+    cluster = "family_cluster"
   )
 
   pe <- lavaan::parameterEstimates(fit, ci = TRUE) %>%
@@ -1156,7 +1220,7 @@ fit_abcd_primary_fiml_sensitivity <- function(abcd) {
       conf_high = ci.upper,
       std_estimate = if_else(str_detect(rhs, "^site"), NA_real_, est),
       nobs = extract_model_nobs(fit),
-      missingness_handling = "Full-information maximum likelihood (FIML)"
+      missingness_handling = "Full-information maximum likelihood (FIML); family-cluster-robust standard errors"
     )
 
   wald <- lavaan::lavTestWald(fit, constraints = "b_field == b_precision")
@@ -1164,45 +1228,48 @@ fit_abcd_primary_fiml_sensitivity <- function(abcd) {
   diff_estimate <- pe %>% filter(term == "field_index") %>% pull(estimate) -
     pe %>% filter(term == "precision_index") %>% pull(estimate)
 
-  ### DT ---> Bug W6 fix: the previous approach used match() to get integer column
-  ### DT ---> indices, which returns NA_integer_ when lavaan uses parameter labels
-  ### DT ---> (e.g. "b_field") whose exact form in vcov() depends on lavaan version
-  ### DT ---> and estimator. NA_integer_ passes is.null() but not is.finite(), so
-  ### DT ---> diff_se silently became NA_real_, writing an empty cell to the CSV.
-  ### DT --->
-  ### DT ---> Fix: use string-based double-bracket indexing inside tryCatch.
-  ### DT ---> If that fails (label not found in vcov), fall back to deriving SE from
-  ### DT ---> the Wald chi-sq statistic: SE = |estimate_diff| / sqrt(wald$stat),
-  ### DT ---> which is algebraically equivalent when the Wald test uses the same
-  ### DT ---> delta-method covariance matrix (Wald chi-sq with df = 1 equals z^2).
-  ### DT --->
-  ### DT ---> The statistic is now reported as a z-score (estimate / SE), consistent
-  ### DT ---> with the MCS pooled-MI contrast in pooled_mi_difference_test(). The
-  ### DT ---> p-value is from a two-sided standard-normal test, which is numerically
-  ### DT ---> identical to the Wald chi-sq(df=1) p-value to machine precision.
-  diff_se <- tryCatch(
+  ### DT --> Derive the contrast variance from the labelled covariance matrix.
+  diff_var <- tryCatch(
     {
       v <- vcov_mat
-      sqrt(max(
-        v["b_field", "b_field"] + v["b_precision", "b_precision"] -
-          2 * v["b_field", "b_precision"],
-        0
-      ))
+      unname(
+        v["b_field", "b_field"] +
+          v["b_precision", "b_precision"] -
+          2 * v["b_field", "b_precision"]
+      )
     },
-    error = function(e) {
-      ### DT ---> Primary vcov lookup failed; derive SE from Wald chi-sq (df = 1)
-      if (!is.null(wald) && is.finite(wald$stat) && wald$stat > 0) {
-        abs(diff_estimate) / sqrt(wald$stat)
-      } else {
-        NA_real_
-      }
-    }
+    error = function(e) NA_real_
   )
-  diff_stat <- if (is.finite(diff_se) && diff_se > 0) diff_estimate / diff_se else NA_real_
+
+  ### DT --> Fall back to the one-df Wald identity when the covariance lookup
+  ### DT --> is unavailable or yields a nonpositive numerical variance.
+  valid_diff_var <- length(diff_var) == 1L &&
+    is.finite(diff_var) &&
+    diff_var > .Machine$double.eps
+
+  if (!isTRUE(valid_diff_var)) {
+    wald_stat <- tryCatch(unname(wald$stat), error = function(e) NA_real_)
+    valid_wald_stat <- length(wald_stat) == 1L &&
+      is.finite(wald_stat) &&
+      wald_stat > 0
+    diff_se <- if (isTRUE(valid_wald_stat)) {
+      abs(diff_estimate) / sqrt(wald_stat)
+    } else {
+      NA_real_
+    }
+  } else {
+    diff_se <- sqrt(diff_var)
+  }
+
+  diff_stat <- if (is.finite(diff_se) && diff_se > 0) {
+    diff_estimate / diff_se
+  } else {
+    NA_real_
+  }
   diff_p <- if (is.finite(diff_stat)) {
     2 * stats::pnorm(abs(diff_stat), lower.tail = FALSE)
   } else {
-    ### DT ---> z-stat unavailable; fall back to Wald p-value
+    ### DT --> Use the direct Wald p value when a signed z statistic is unavailable.
     tryCatch(unname(wald$p.value), error = function(e) NA_real_)
   }
 
@@ -1216,7 +1283,7 @@ fit_abcd_primary_fiml_sensitivity <- function(abcd) {
     statistic = diff_stat,
     p_value = diff_p,
     nobs = extract_model_nobs(fit),
-    missingness_handling = "Full-information maximum likelihood (FIML)"
+    missingness_handling = "Full-information maximum likelihood (FIML); family-cluster-robust standard errors"
   )
 
   list(
@@ -1225,12 +1292,18 @@ fit_abcd_primary_fiml_sensitivity <- function(abcd) {
   )
 }
 
-### DT ---> MCS-parity sensitivity: same primary ABCD model re-estimated
-### DT ---> without parent_education_z.  MCS has no equivalent variable in its
-### DT ---> standard adjustment set (age, sex, income quintile, stratum), so
-### DT ---> this check confirms the ABCD ordering result does not depend on the
-### DT ---> additional SES control that has no MCS counterpart.
+### DT --> MCS-parity sensitivity: same primary ABCD model re-estimated
+### DT --> without parent_education_z.  MCS has no equivalent variable in its
+### DT --> standard adjustment set (age, sex, income quintile, stratum), so
+### DT --> this check evaluates sensitivity to the additional SES control that
+### DT --> has no MCS counterpart.
 fit_abcd_no_parented_sensitivity <- function(abcd) {
+  if (!"family_id" %in% names(abcd$predictive)) {
+    stop(
+      "ABCD family_id is absent from the analysis cache. Rebuild the cache ",
+      "before rerunning the no-parent-education sensitivity."
+    )
+  }
   d <- abcd$predictive %>%
     filter(
       !is.na(followup_internalising_z),
@@ -1241,10 +1314,15 @@ fit_abcd_no_parented_sensitivity <- function(abcd) {
       household_income_z = zscore(household_income),
       baseline_age_z     = zscore(baseline_age),
       neighborhood_risk_z = zscore(neighborhood_risk),
+      family_cluster = if_else(
+        is.na(family_id) | as.character(family_id) == "",
+        paste0("singleton_", participant_id),
+        as.character(family_id)
+      ),
       site               = as.factor(site)
     )
 
-  ### DT ---> Build covariate string WITHOUT parent_education_z
+  ### DT --> Build the MCS-parity covariate set without parent_education_z.
   build_terms <- function(data, baseline_var) {
     terms <- c(baseline_var, "baseline_age_z")
     if (has_variation(data$sex_z))              terms <- c(terms, "sex_z")
@@ -1260,11 +1338,19 @@ fit_abcd_no_parented_sensitivity <- function(abcd) {
   m0 <- lm(f0, data = d)
   m3 <- update(m0, . ~ . + field_index + precision_index)
 
-  coefs <- simple_coef_table(m3, "combined") %>%
+  model_rows <- suppressWarnings(as.integer(rownames(m3$model)))
+  if (length(model_rows) != stats::nobs(m3) || anyNA(model_rows)) {
+    stop("Could not align ABCD family clusters in the no-parent-education model.")
+  }
+  clusters <- d$family_cluster[model_rows]
+  cluster_df <- dplyr::n_distinct(clusters) - 1
+  cluster_vcov <- sandwich::vcovCL(m3, cluster = clusters, type = "HC1")
+
+  coefs <- simple_coef_table(m3, "combined", cluster_vcov, cluster_df) %>%
     mutate(
       outcome              = "Age 15 parent-reported internalising",
       nobs                 = extract_model_nobs(m3),
-      missingness_handling = "Complete-case (no parent education)",
+      missingness_handling = "Complete-case (no parent education); family-cluster-robust standard errors",
       .before              = 1
     )
 
@@ -1274,9 +1360,11 @@ fit_abcd_no_parented_sensitivity <- function(abcd) {
     term_b     = "precision_index",
     model_name = "combined",
     cohort     = "ABCD",
-    outcome    = "Age 15 parent-reported internalising"
+    outcome    = "Age 15 parent-reported internalising",
+    vcov_matrix = cluster_vcov,
+    df_override = cluster_df
   ) %>%
-    mutate(missingness_handling = "Complete-case (no parent education)")
+    mutate(missingness_handling = "Complete-case (no parent education); family-cluster-robust standard errors")
 
   list(
     coefficients       = coefs,
@@ -1284,7 +1372,8 @@ fit_abcd_no_parented_sensitivity <- function(abcd) {
     covariate_note     = paste0(
       "MCS-parity sensitivity: ABCD primary model re-estimated without parent ",
       "education. Covariates retained: baseline internalising, age, sex, ",
-      "household income, area deprivation index, and assessment site."
+      "household income, area deprivation index, and assessment site; standard ",
+      "errors are clustered by Release 6.1 family identifier."
     )
   )
 }
@@ -1314,11 +1403,8 @@ make_trajectory_plot <- function(data, wave_var, outcome_var, cohort, title) {
 }
 
 comparison_plot_df <- function(results_df, cohort_label) {
-  precision_label <- if (cohort_label %in% c("ABCD", "Adolescent Brain Cognitive Development Study")) {
-    "Cognitive-control\nproxy"
-  } else {
-    "Executive-control\nproxy"
-  }
+  precision_label <- "Cognitive-control\nmeasure"
+  engagement_label <- "Engagement-related\nmeasure"
 
   results_df %>%
     filter(model == "combined", term %in% c("field_index", "precision_index")) %>%
@@ -1326,12 +1412,12 @@ comparison_plot_df <- function(results_df, cohort_label) {
       cohort = cohort_label,
       term = recode(
         term,
-        field_index = "Motivation/\nengagement proxy",
+        field_index = engagement_label,
         precision_index = precision_label
       ),
       term = factor(
         term,
-        levels = c(precision_label, "Motivation/\nengagement proxy")
+        levels = c(precision_label, engagement_label)
       )
     )
 }
@@ -1348,9 +1434,8 @@ make_comparison_plot <- function(results_df, cohort, title, y_limits = NULL) {
     geom_point(size = 3.2) +
     scale_colour_manual(
       values = c(
-        "Motivation/\nengagement proxy" = "#006d77",
-        "Executive-control\nproxy" = "#bb3e03",
-        "Cognitive-control\nproxy" = "#bb3e03"
+        "Engagement-related\nmeasure" = "#006d77",
+        "Cognitive-control\nmeasure" = "#bb3e03"
       )
     ) +
     coord_cartesian(ylim = y_limits) +
@@ -1375,8 +1460,8 @@ make_combined_comparison_plot <- function(abcd_results, mcs_results, y_limits = 
     )
 
   cohort_labels <- c(
-    "Millennium Cohort Study" = "(a) Millennium Cohort Study",
-    "Adolescent Brain Cognitive Development Study" = "(b) Adolescent Brain Cognitive Development Study"
+    "Millennium Cohort Study" = "(a) MCS",
+    "Adolescent Brain Cognitive Development Study" = "(b) ABCD Study"
   )
 
   ggplot(plot_df, aes(x = term, y = estimate, colour = term)) +
@@ -1389,9 +1474,8 @@ make_combined_comparison_plot <- function(abcd_results, mcs_results, y_limits = 
     facet_wrap(~ cohort, nrow = 1, labeller = as_labeller(cohort_labels)) +
     scale_colour_manual(
       values = c(
-        "Motivation/\nengagement proxy" = "#006d77",
-        "Executive-control\nproxy" = "#bb3e03",
-        "Cognitive-control\nproxy" = "#bb3e03"
+        "Engagement-related\nmeasure" = "#006d77",
+        "Cognitive-control\nmeasure" = "#bb3e03"
       )
     ) +
     coord_cartesian(ylim = y_limits) +
@@ -1399,7 +1483,8 @@ make_combined_comparison_plot <- function(abcd_results, mcs_results, y_limits = 
     theme_paper() +
     theme(
       legend.position = "none",
-      axis.text.x = element_text(size = 9)
+      axis.text.x = element_text(size = 9),
+      strip.text = element_text(size = 10)
     )
 }
 
@@ -1420,15 +1505,27 @@ build_claim_summary <- function(abcd_results, mcs_results) {
   mcs_field_p <- mcs_combined %>% filter(term == "field_index") %>% pull(p_value)
   mcs_precision_p <- mcs_combined %>% filter(term == "precision_index") %>% pull(p_value)
   mcs_diff_p <- mcs_diff %>% pull(p_value)
+  abcd_context_sig <- nrow(abcd_results$moderation) > 0 && any(abcd_results$moderation$p_value < 0.05, na.rm = TRUE)
+  mcs_context_sig <- nrow(mcs_results$context_moderation) > 0 && any(mcs_results$context_moderation$p_value < 0.05, na.rm = TRUE)
   mcs_prs_sig <- nrow(mcs_results$prs_moderation) > 0 && any(mcs_results$prs_moderation$p_value < 0.05, na.rm = TRUE)
 
   support_label <- function(field_beta, precision_beta, field_p, precision_p, diff_p) {
     case_when(
       is.na(field_beta) ~ "not estimable",
-      !is.na(diff_p) && diff_p < 0.05 && abs(field_beta) > abs(precision_beta) ~ "supports",
-      field_p < 0.10 && abs(field_beta) >= abs(precision_beta) ~ "partially supports",
-      TRUE ~ "does not support"
+      !is.na(diff_p) && diff_p < 0.05 && abs(field_beta) > abs(precision_beta) ~ "directionally consistent with proxy ordering",
+      field_p < 0.10 && abs(field_beta) >= abs(precision_beta) ~ "weak directional consistency",
+      TRUE ~ "not directionally consistent"
     )
+  }
+
+  claim_p <- function(x) {
+    if (is.na(x)) {
+      return("= NA")
+    }
+    if (x < 0.001) {
+      return("< .001")
+    }
+    paste0("= ", sub("^0", "", sprintf("%.3f", x)))
   }
 
   tibble(
@@ -1448,10 +1545,34 @@ build_claim_summary <- function(abcd_results, mcs_results) {
       "Survey-weighted svyglm interaction models with depression PRS and cognition PGI plus ancestry PCs to age 17"
     ),
     key_result = c(
-      sprintf("Motivation/engagement beta = %.3f (p = %.3f); cognitive-control beta = %.3f (p = %.3f); direct coefficient-comparison p = %.3f", abcd_field_beta, abcd_field_p, abcd_precision_beta, abcd_precision_p, abcd_diff_p),
-      sprintf("Motivation/engagement beta = %.3f (p = %.3f); executive-control beta = %.3f (p = %.3f); direct coefficient-comparison p = %.3f", mcs_field_beta, mcs_field_p, mcs_precision_beta, mcs_precision_p, mcs_diff_p),
-      ifelse(nrow(abcd_results$moderation) > 0, "At least one context interaction was estimable in the local ABCD extract", "Context interactions were limited by local ABCD availability"),
-      ifelse(nrow(mcs_results$context_moderation) > 0, "Multiple age-14 context interactions were estimable in MCS", "Context interactions were not stable/estimable"),
+      sprintf("Motivation/engagement beta = %.3f (p %s); cognitive-control beta = %.3f (p %s); direct coefficient-comparison p %s", abcd_field_beta, claim_p(abcd_field_p), abcd_precision_beta, claim_p(abcd_precision_p), claim_p(abcd_diff_p)),
+      sprintf("Motivation/engagement beta = %.3f (p %s); executive-control beta = %.3f (p %s); direct coefficient-comparison p %s", mcs_field_beta, claim_p(mcs_field_p), mcs_precision_beta, claim_p(mcs_precision_p), claim_p(mcs_diff_p)),
+      ifelse(
+        nrow(abcd_results$moderation) == 0,
+        "Context interactions were not estimable with the available ABCD measures",
+        ifelse(
+          abcd_context_sig,
+          "At least one exploratory context interaction reached conventional significance",
+          sprintf(
+            "Context interactions were estimable, but none reached conventional significance (smallest p %s)",
+            claim_p(min(abcd_results$moderation$p_value, na.rm = TRUE))
+          )
+        )
+      ),
+      ifelse(
+        nrow(mcs_results$context_moderation) == 0,
+        "Context interactions were not estimable in MCS",
+        ifelse(
+          mcs_context_sig,
+          sprintf(
+            "%d of %d exploratory age-14 context interactions reached nominal conventional significance (smallest p %s; no multiplicity adjustment)",
+            sum(mcs_results$context_moderation$p_value < 0.05, na.rm = TRUE),
+            sum(!is.na(mcs_results$context_moderation$p_value)),
+            claim_p(min(mcs_results$context_moderation$p_value, na.rm = TRUE))
+          ),
+          "Context interactions were estimable, but none reached conventional significance"
+        )
+      ),
       ifelse(
         nrow(mcs_results$prs_moderation) == 0,
         "Genetic-score moderation not estimable",
@@ -1465,9 +1586,9 @@ build_claim_summary <- function(abcd_results, mcs_results) {
     support_level = c(
       support_label(abcd_field_beta, abcd_precision_beta, abcd_field_p, abcd_precision_p, abcd_diff_p),
       support_label(mcs_field_beta, mcs_precision_beta, mcs_field_p, mcs_precision_p, mcs_diff_p),
-      ifelse(nrow(abcd_results$moderation) > 0, "partially supports", "does not support"),
-      ifelse(nrow(mcs_results$context_moderation) > 0, "partially supports", "does not support"),
-      ifelse(nrow(mcs_results$prs_moderation) == 0, "not estimable", ifelse(mcs_prs_sig, "partially supports", "does not support"))
+      ifelse(nrow(abcd_results$moderation) == 0, "not estimable", ifelse(abcd_context_sig, "nominal exploratory signal present", "no nominal signal observed")),
+      ifelse(nrow(mcs_results$context_moderation) == 0, "not estimable", ifelse(mcs_context_sig, "nominal exploratory signals present", "no nominal signal observed")),
+      ifelse(nrow(mcs_results$prs_moderation) == 0, "not estimable", ifelse(mcs_prs_sig, "exploratory signal present", "not observed"))
     )
   )
 }

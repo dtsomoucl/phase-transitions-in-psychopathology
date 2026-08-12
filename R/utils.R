@@ -1,4 +1,4 @@
-### DT --> Shared helpers for loading local cohort data, standardising scales, and writing outputs.
+### DT --> Shared helpers for loading licensed cohort data, standardising scales, and writing outputs.
 suppressPackageStartupMessages({
   library(dplyr)
   library(fs)
@@ -314,16 +314,43 @@ simple_model_metrics <- function(model, model_name) {
   tibble(
     model = model_name,
     nobs = model_nobs,
-    aic = extract_model_aic(fitted_model),
+    aic = stats::AIC(fitted_model),
     bic = BIC(fitted_model),
     logLik = as.numeric(logLik(fitted_model))
   )
 }
 
-simple_coef_table <- function(model, model_name) {
-  coef_mat <- summary(model)$coefficients
-  tibble::as_tibble(coef_mat, rownames = "term") %>%
-    rename_with(~ c("estimate", "std_error", "statistic", "p_value")[seq_along(.)], -term) %>%
+simple_coef_table <- function(model, model_name, vcov_matrix = NULL, df_override = NULL) {
+  if (is.null(vcov_matrix)) {
+    coef_mat <- summary(model)$coefficients
+    out <- tibble::as_tibble(coef_mat, rownames = "term") %>%
+      rename_with(~ c("estimate", "std_error", "statistic", "p_value")[seq_along(.)], -term)
+  } else {
+    estimates <- stats::coef(model)
+    ### DT --> Robust covariance matrices can omit aliased coefficients. Align
+    ### DT --> by coefficient name and retain explicit NA values for terms that
+    ### DT --> are not estimable, rather than recycling shorter vectors.
+    covariance_errors <- sqrt(diag(vcov_matrix))
+    std_errors <- stats::setNames(rep(NA_real_, length(estimates)), names(estimates))
+    common_terms <- intersect(names(estimates), names(covariance_errors))
+    std_errors[common_terms] <- covariance_errors[common_terms]
+    statistics <- estimates / std_errors
+    reference_df <- df_override %||% stats::df.residual(model)
+    p_values <- if (is.finite(reference_df)) {
+      2 * stats::pt(abs(statistics), df = reference_df, lower.tail = FALSE)
+    } else {
+      2 * stats::pnorm(abs(statistics), lower.tail = FALSE)
+    }
+    out <- tibble(
+      term = names(estimates),
+      estimate = unname(estimates),
+      std_error = unname(std_errors),
+      statistic = unname(statistics),
+      p_value = unname(p_values)
+    )
+  }
+
+  out %>%
     mutate(
       conf_low = estimate - 1.96 * std_error,
       conf_high = estimate + 1.96 * std_error,

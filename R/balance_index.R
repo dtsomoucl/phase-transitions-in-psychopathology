@@ -138,10 +138,31 @@ balance_extract_coef <- function(model, predictor, model_label, outcome_label) {
     return(NULL)
   }
 
-  stat_col <- intersect(c("t value", "z value"), colnames(coef_mat))[1]
-  p_col <- intersect(c("Pr(>|t|)", "Pr(>|z|)"), colnames(coef_mat))[1]
   estimate <- unname(coef_mat[predictor, "Estimate"])
-  std_error <- unname(coef_mat[predictor, "Std. Error"])
+  robust_vcov <- attr(model, "balance_vcov")
+  robust_df <- attr(model, "balance_df")
+
+  if (!is.null(robust_vcov) && predictor %in% rownames(robust_vcov)) {
+    std_error <- sqrt(unname(robust_vcov[predictor, predictor]))
+    statistic <- estimate / std_error
+    p_value <- if (is.finite(robust_df)) {
+      2 * stats::pt(abs(statistic), df = robust_df, lower.tail = FALSE)
+    } else {
+      2 * stats::pnorm(abs(statistic), lower.tail = FALSE)
+    }
+    critical_value <- if (is.finite(robust_df)) {
+      stats::qt(0.975, df = robust_df)
+    } else {
+      stats::qnorm(0.975)
+    }
+  } else {
+    stat_col <- intersect(c("t value", "z value"), colnames(coef_mat))[1]
+    p_col <- intersect(c("Pr(>|t|)", "Pr(>|z|)"), colnames(coef_mat))[1]
+    std_error <- unname(coef_mat[predictor, "Std. Error"])
+    statistic <- if (!is.na(stat_col)) unname(coef_mat[predictor, stat_col]) else NA_real_
+    p_value <- if (!is.na(p_col)) unname(coef_mat[predictor, p_col]) else NA_real_
+    critical_value <- stats::qnorm(0.975)
+  }
   fit_stats <- balance_model_fit_stats(model)
 
   tibble::tibble(
@@ -150,11 +171,11 @@ balance_extract_coef <- function(model, predictor, model_label, outcome_label) {
     predictor = predictor,
     estimate = estimate,
     std_error = std_error,
-    statistic = if (!is.na(stat_col)) unname(coef_mat[predictor, stat_col]) else NA_real_,
-    p_value = if (!is.na(p_col)) unname(coef_mat[predictor, p_col]) else NA_real_,
+    statistic = statistic,
+    p_value = p_value,
     odds_ratio = exp(estimate),
-    or_conf_low = exp(estimate - 1.96 * std_error),
-    or_conf_high = exp(estimate + 1.96 * std_error),
+    or_conf_low = exp(estimate - critical_value * std_error),
+    or_conf_high = exp(estimate + critical_value * std_error),
     aic = fit_stats$aic,
     auc = fit_stats$auc,
     brier = fit_stats$brier,
@@ -346,6 +367,11 @@ make_abcd_balance_subset <- function(df, threshold = 64) {
       psi_z = zscore(psi),
       stress_z = zscore(stress_val),
       positive_affect_z = zscore(positive_affect_val),
+      family_cluster = dplyr::if_else(
+        is.na(family_id) | as.character(family_id) == "",
+        paste0("singleton_", participant_id),
+        as.character(family_id)
+      ),
       site = as.factor(site)
     ) %>%
     dplyr::filter(!is.na(followup_internalising_t)) %>%
@@ -400,12 +426,30 @@ fit_abcd_balance_core <- function(bal, outcome_var, outcome_label, denominator_m
 
   fit_fn <- function(formula_obj) {
     vars <- all.vars(formula_obj)
-    dat <- bal %>% dplyr::filter(dplyr::if_all(dplyr::all_of(vars), ~ !is.na(.)))
+    dat <- bal %>%
+      dplyr::filter(
+        dplyr::if_all(dplyr::all_of(vars), ~ !is.na(.)),
+        !is.na(family_cluster),
+        family_cluster != ""
+      )
     outcome_name <- vars[[1]]
     if (nrow(dat) < 100 || dplyr::n_distinct(dat[[outcome_name]]) < 2) {
       return(NULL)
     }
     fit <- glm(formula_obj, data = dat, family = binomial())
+    n_clusters <- dplyr::n_distinct(dat$family_cluster)
+    if (n_clusters < 2) {
+      stop("ABCD balance-index inference requires at least two family clusters.")
+    }
+    ### DT --> Retain ordinary fitted probabilities and likelihood-based fit
+    ### DT --> statistics, while using family-cluster-robust covariance for
+    ### DT --> coefficient uncertainty and hypothesis tests.
+    attr(fit, "balance_vcov") <- sandwich::vcovCL(
+      fit,
+      cluster = dat$family_cluster,
+      type = "HC1"
+    )
+    attr(fit, "balance_df") <- n_clusters - 1
     attr(fit, "balance_obs") <- dat[[outcome_name]]
     attr(fit, "balance_weights") <- rep(1, nrow(dat))
     fit
@@ -430,7 +474,9 @@ fit_abcd_balance_core <- function(bal, outcome_var, outcome_label, denominator_m
   }
 
   comparison <- comparison %>%
-    dplyr::mutate(missingness_handling = "Complete-case analysis")
+    dplyr::mutate(
+      missingness_handling = "Complete-case analysis; family-cluster-robust standard errors"
+    )
 
   list(
     descriptives = desc,
@@ -452,7 +498,7 @@ make_abcd_balance_base <- function(
   }
 
   required_vars <- c(
-    "participant_id", "session_id", "age", "sex", "site",
+    "participant_id", "session_id", "family_id", "age", "sex", "site",
     "household_income", "parent_education", "neighborhood_risk",
     "internalising_t", stress_var, denominator_var
   )
@@ -464,6 +510,7 @@ make_abcd_balance_base <- function(
     dplyr::filter(session_id == baseline_session) %>%
     dplyr::transmute(
       participant_id,
+      family_id,
       baseline_age = age,
       sex = sex,
       site = site,

@@ -1,4 +1,4 @@
-### DT --> Data inventory builders for the local ABCD and MCS assets and the selected analytic measures.
+### DT --> Data inventory builders for licensed ABCD and MCS assets and the selected analytic measures.
 abcd_selected_sources <- function(config) {
   tibble(
     cohort = "ABCD",

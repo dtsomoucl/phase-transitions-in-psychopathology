@@ -27,7 +27,9 @@ compute_standardised_reliability <- function(data, id_var, items, cohort, wave, 
     return(out)
   }
 
-  alpha_fit <- suppressWarnings(psych::alpha(complete_items, check.keys = FALSE, warnings = FALSE))
+  alpha_fit <- suppressMessages(suppressWarnings(
+    psych::alpha(complete_items, check.keys = FALSE, warnings = FALSE)
+  ))
   omega_fit <- suppressMessages(suppressWarnings(
     psych::omega(complete_items, nfactors = 1, plot = FALSE, warnings = FALSE)
   ))

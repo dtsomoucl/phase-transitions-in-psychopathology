@@ -17,7 +17,7 @@ abcd_variable_mapping <- function(config) {
   tibble(
     cohort = "ABCD",
     category = c(
-      "id_wave", "id_wave", rep("covariate", 6),
+      "id_wave", "id_wave", "id_cluster", rep("covariate", 6),
       rep("outcome", 6),
       "field_like", "field_like", "field_like",
       "field_sensitivity", "field_sensitivity", "field_sensitivity", "field_sensitivity",
@@ -26,7 +26,7 @@ abcd_variable_mapping <- function(config) {
       "prs"
     ),
     construct = c(
-      "participant_id", "session_id", "age", "sex", "site", "household_income", "parent_education", "neighborhood_disadvantage",
+      "participant_id", "session_id", "family_id", "age", "sex", "site", "household_income", "parent_education", "neighborhood_disadvantage",
       "internalising", "withdrawn_depressed", "depressive_problems", "youth_bpm_internalising", "youth_bpm_attention", "youth_depression_impairment",
       "school_environment", "school_involvement", "school_disengagement",
       "bas_drive", "bas_fun_seeking", "bas_reward_responsiveness", "positive_affect_youth",
@@ -38,8 +38,8 @@ abcd_variable_mapping <- function(config) {
     file = fs::path(
       config$raw_data$abcd_dir,
       c(
-        "mh_p_cbcl.tsv", "mh_p_cbcl.tsv", "mh_p_cbcl.tsv", "ab_p_demo.tsv", "ab_p_demo.tsv",
-        "ab_g_stc.tsv", "ab_g_dyn.tsv", "le_l_adi.tsv",
+        "mh_p_cbcl.tsv", "mh_p_cbcl.tsv", "ab_g_stc.tsv", "mh_p_cbcl.tsv", "ab_g_stc.tsv", "ab_g_dyn.tsv",
+        "ab_p_demo.tsv", "ab_p_demo.tsv", "le_l_adi.tsv",
         "mh_p_cbcl.tsv", "mh_p_cbcl.tsv", "mh_p_cbcl.tsv", "mh_y_bpm.tsv", "mh_y_bpm.tsv", "mh_y_ksads__dep.parquet",
         "fc_y_srpf.tsv", "fc_y_srpf.tsv", "fc_y_srpf.tsv",
         "mh_y_bisbas.tsv", "mh_y_bisbas.tsv", "mh_y_bisbas.tsv", "mh_y_pai.tsv",
@@ -49,7 +49,7 @@ abcd_variable_mapping <- function(config) {
       )
     ),
     variable = c(
-      "participant_id", "session_id", "mh_p_cbcl_age", "ab_g_stc__cohort_sex", "ab_g_dyn__design_site", "ab_p_demo__income__hhold_001", "ab_p_demo__edu__slf_001__v02", "le_l_adi__addr1__national_prcnt",
+      "participant_id", "session_id", "ab_g_stc__design_id__fam", "mh_p_cbcl_age", "ab_g_stc__cohort_sex", "ab_g_dyn__design_site", "ab_p_demo__income__hhold_001", "ab_p_demo__edu__slf_001__v02", "le_l_adi__addr1__national_prcnt",
       "mh_p_cbcl__synd__int_tscore", "mh_p_cbcl__synd__wthdep_tscore", "mh_p_cbcl__dsm__dep_tscore", "mh_y_bpm__int_tscore", "mh_y_bpm__attn_tscore", "mh_y_ksads__dep__impfunct__pres_sx",
       "fc_y_srpf__env_mean", "fc_y_srpf__involv_mean", "fc_y_srpf__dis_mean",
       "mh_y_bisbas__bas__dr_sum", "mh_y_bisbas__bas__fs_sum", "mh_y_bisbas__bas__rr_sum", "mh_y_pai_sum",
@@ -60,7 +60,7 @@ abcd_variable_mapping <- function(config) {
       "No local ABCD PRS/PGI file located in this workspace"
     ),
     notes = c(
-      "ABCD participant identifier", "ABCD session identifier", "Table-specific age", "Stable cohort sex", "Assessment site", "Parent-reported household income band", "Parent education version 2 when available", "Linked area deprivation index percentile (address 1)",
+      "ABCD participant identifier", "ABCD session identifier", "Release 6.1 family identifier used for clustered standard errors", "Table-specific age", "Stable cohort sex", "Assessment site", "Parent-reported household income band", "Parent education version 2 when available", "Linked area deprivation index percentile (address 1)",
       "Primary outcome for ABCD longitudinal analyses", "Withdrawal/disengagement proxy", "Secondary depressive outcome", "Youth-reported internalising sensitivity outcome", "Youth-reported attention-problems sensitivity outcome", "Youth KSADS depression-related functional impairment",
       "School climate/protection", "School involvement", "Reverse-scored in the primary field composite",
       "Alternative field-like candidate", "Alternative field-like candidate", "Alternative field-like candidate", "Age-13 youth positive-affect denominator used in the ABCD balance-index analysis",
@@ -95,7 +95,7 @@ build_abcd_dataset <- function(config) {
 
   cohort_static <- read_abcd_tsv_any(
     fs::path(abcd_dir, "ab_g_stc.tsv"),
-    c("participant_id", "ab_g_stc__cohort_sex")
+    c("participant_id", "ab_g_stc__cohort_sex", "ab_g_stc__design_id__fam")
   )
 
   visit_design <- read_abcd_tsv_any(
@@ -174,9 +174,9 @@ build_abcd_dataset <- function(config) {
       "nc_y_nihtb__crdst__fullcorr_tscore",
       "nc_y_nihtb__flnkr__fullcor_tscore",
       "nc_y_nihtb__lswmt__fullcor_tscore",
-      ### DT ---> Precision-proxy sensitivity replacements (good ses-02A coverage)
-      "nc_y_nihtb__pttcp__fullcor_tscore",           ### DT ---> Pattern Comparison Processing Speed
-      "nc_y_nihtb__comp__cryst__fullcorr_tscore"     ### DT ---> Crystallized composite
+      ### DT --> Cognitive-control-proxy sensitivity variables with adequate ses-02A coverage.
+      "nc_y_nihtb__pttcp__fullcor_tscore",           ### DT --> Pattern Comparison Processing Speed
+      "nc_y_nihtb__comp__cryst__fullcorr_tscore"     ### DT --> Crystallized composite
     )
   )
 
@@ -234,6 +234,7 @@ build_abcd_dataset <- function(config) {
       wave_year = session_to_wave_year(session_id),
       age = clean_numeric(mh_p_cbcl_age),
       sex = clean_numeric(ab_g_stc__cohort_sex),
+      family_id = as.factor(as.character(ab_g_stc__design_id__fam)),
       site = as.factor(clean_numeric(ab_g_dyn__design_site)),
       household_income = first_non_missing(
         clean_numeric(ab_p_demo__income__hhold_001),
@@ -302,7 +303,7 @@ build_abcd_dataset <- function(config) {
       nihtb_flanker = clean_numeric(nc_y_nihtb__flnkr__fullcor_tscore),
       nihtb_cardsort = clean_numeric(nc_y_nihtb__crdst__fullcorr_tscore),
       nihtb_workmem = clean_numeric(nc_y_nihtb__lswmt__fullcor_tscore),
-      ### DT ---> Precision-proxy sensitivity replacements
+      ### DT --> Cognitive-control-proxy sensitivity variables.
       nihtb_processing_speed = clean_numeric(nc_y_nihtb__pttcp__fullcor_tscore),
       nihtb_crystallized = clean_numeric(nc_y_nihtb__comp__cryst__fullcorr_tscore),
       nihtb_fluid = clean_numeric(nc_y_nihtb__comp__fluid__fullcorr_tscore),
@@ -328,7 +329,7 @@ build_abcd_dataset <- function(config) {
       precision_index = zscore(nihtb_flanker),
       precision_cardsort_index = zscore(nihtb_cardsort),
       precision_workmem_index = zscore(nihtb_workmem),
-      ### DT ---> Precision-proxy sensitivity replacements
+      ### DT --> Cognitive-control-proxy sensitivity variables.
       precision_processing_speed_index = zscore(nihtb_processing_speed),
       precision_crystallized_index = zscore(nihtb_crystallized),
       family_context = zscore(family_cohesion) - zscore(family_conflict),
@@ -392,7 +393,7 @@ build_abcd_dataset <- function(config) {
   predictive <- long %>%
     filter(session_id %in% c(baseline_session, followup_session)) %>%
     select(
-      participant_id, session_id, age, ethnicity_5cat, household_income, parent_education,
+      participant_id, session_id, family_id, age, ethnicity_5cat, household_income, parent_education,
       sex, site, neighborhood_adi, neighborhood_risk,
       internalising_t, internalising_z, cbcl_stress_sum, withdrawn_t, withdrawn_z,
       bas_drive,
@@ -411,6 +412,7 @@ build_abcd_dataset <- function(config) {
     ) %>%
     transmute(
       participant_id = participant_id,
+      family_id = .data[[paste0("family_id__", baseline_session)]],
       baseline_age = .data[[paste0("age__", baseline_session)]],
       ethnicity_5cat = .data[[paste0("ethnicity_5cat__", baseline_session)]],
       sex = .data[[paste0("sex__", baseline_session)]],
@@ -435,7 +437,7 @@ build_abcd_dataset <- function(config) {
       precision_index = .data[[paste0("precision_index__", baseline_session)]],
       precision_cardsort_index = .data[[paste0("precision_cardsort_index__", baseline_session)]],
       precision_workmem_index = .data[[paste0("precision_workmem_index__", baseline_session)]],
-      ### DT ---> Precision-proxy sensitivity replacements
+      ### DT --> Cognitive-control-proxy sensitivity variables.
       precision_processing_speed_index = .data[[paste0("precision_processing_speed_index__", baseline_session)]],
       precision_crystallized_index = .data[[paste0("precision_crystallized_index__", baseline_session)]],
       family_context = .data[[paste0("family_context__", baseline_session)]],
