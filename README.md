@@ -42,7 +42,7 @@ Code and analysis materials for a project that combines:
 
 - Repository root
   - `main.py`: top-level Python entry point for the full simulation workflow
-  - `SOM_Empirical_Results.Rmd`: main supplemental empirical-results document
+  - `SOM_Empirical_Results.Rmd`: main supplemental empirical-results document (and its knit html version)
 
 - `config/`
   - Project configuration, including data and output locations
@@ -121,7 +121,6 @@ Main generated outputs include:
 
 - simulation figures in `Python_code/Figs_psychopathology/`
 - empirical tables and figures in `outputs/tables/` and `outputs/figures/`
-- manuscript-specific figures in `Manuscript/`
 - state-anchored sensitivity tables in `outputs/tables/fixed_schedule_intervention_state.csv` and `outputs/tables/verified_withdrawal_*.csv`
 - the state-anchored sensitivity figure `Python_code/Figs_psychopathology/fig_S6_verified_withdrawal.*`
 
