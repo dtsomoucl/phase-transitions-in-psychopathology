@@ -1,0 +1,2 @@
+cohort,outcome,model,contrast,estimate_difference,std_error,statistic,p_value,nobs,missingness_handling
+MCS,Age 17 psychological distress,combined,field_index - precision_index,-0.3232791694161501,0.02771294252854693,-11.665277661624788,4.878294896755008e-27,8371,Complete-case analysis on a common comparison sample

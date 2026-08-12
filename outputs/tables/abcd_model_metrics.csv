@@ -1,0 +1,5 @@
+outcome,model,nobs,aic,bic,logLik,missingness_handling
+Age 15 parent-reported internalising,base,5674,13500.521682584307,13686.543871814634,-6722.260841292154,Complete-case analysis on a common comparison sample; family-cluster-robust standard errors
+Age 15 parent-reported internalising,field,5674,13479.025063838404,13671.690902684099,-6710.512531919202,Complete-case analysis on a common comparison sample; family-cluster-robust standard errors
+Age 15 parent-reported internalising,precision,5674,13494.446332685731,13687.112171531426,-6718.223166342866,Complete-case analysis on a common comparison sample; family-cluster-robust standard errors
+Age 15 parent-reported internalising,combined,5674,13472.438414366869,13671.747902827932,-6706.219207183434,Complete-case analysis on a common comparison sample; family-cluster-robust standard errors

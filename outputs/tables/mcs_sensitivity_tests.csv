@@ -1,0 +1,8 @@
+cohort,outcome,model,contrast,estimate_difference,std_error,statistic,p_value,nobs,missingness_handling
+MCS,Age 14 MFQ depressive symptoms,combined,field_index - precision_index,-0.6227544239706577,0.02340721489908789,-26.60523375614946,1.853284585987071e-88,8935,Complete-case analysis on a common comparison sample
+MCS,Age 17 wellbeing,combined,field_index - precision_index,0.3783266274033012,0.028456177198414048,13.295061552554097,2.5840666387215937e-33,8328,Complete-case analysis on a common comparison sample
+MCS,Age 23 psychological distress,combined,field_index - precision_index,-0.20232201276555642,0.026505461605282214,-7.633219740841492,1.9166663966910196e-13,7449,Complete-case analysis on a common comparison sample
+MCS,Age 23 anxiety symptoms,combined,field_index - precision_index,-0.143565467355214,0.03210973037640901,-4.471089158091823,1.0325832586024997e-5,5667,Complete-case analysis on a common comparison sample
+MCS,Age 23 depressive symptoms,combined,field_index - precision_index,-0.17985608431373903,0.03392541765096815,-5.301514226416794,1.965520030584603e-7,5666,Complete-case analysis on a common comparison sample
+MCS,Age 23 loneliness,combined,field_index - precision_index,-0.21177560363708772,0.0306698059739738,-6.905019347588933,2.1559982608882182e-11,7130,Complete-case analysis on a common comparison sample
+MCS,Age 23 wellbeing,combined,field_index - precision_index,0.2453655366375705,0.028851638848053075,8.504388188476437,4.4015892439578144e-16,7124,Complete-case analysis on a common comparison sample
