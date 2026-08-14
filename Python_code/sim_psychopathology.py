@@ -564,94 +564,6 @@ def compute_event_aligned_ac(allP, jtimes, window_before=80, window_after=40,
     return rel_range, mean_ac, se_ac, n_valid
 
 
-def plot_ews_revised():
-    """
-    Two-panel EWS figure.
-
-    Panel (a): event-aligned lag-1 autocorrelation — averaged across agents
-    after aligning each at their own transition time.  Shows the pre-
-    transition rise in AC (critical slowing down) that is washed out in the
-    population-average because agents transition at different times.
-
-    Panel (b): population susceptibility (variance of latent P(engaged))
-    with population mean overlaid.
-    """
-    d = DEFAULTS.copy()
-    N_total = 600; n_ag = 200
-    kw = {k: d[k] for k in ["gamma_healthy", "delta_c_healthy", "N_healthy",
-                              "gamma_rate", "delta_c_rate", "gamma_floor", "delta_c_floor"]}
-    allP = np.zeros((n_ag, N_total))
-    jtimes_ews = np.zeros(n_ag, dtype=int)
-    for i in range(n_ag):
-        h = run_agent_with_drift(d["p"], d["alpha_0"], N_total, seed=2000 + i, **kw)
-        allP[i, :] = h["P_pi1"]
-        jtimes_ews[i] = detect_jump(h["P_pi1"])
-
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5.5))
-
-    # --- Panel (a): event-aligned autocorrelation ---
-    ax = axes[0]
-    ### DT ---> Event-aligned AC: align each agent at its own transition time
-    ### DT ---> so the pre-transition rise is not masked by population spread
-    ### DT ---> in jump timing (which causes the population-average AC to fall).
-    t_rel, mean_ac, se_ac, n_valid = compute_event_aligned_ac(
-        allP, jtimes_ews, window_before=80, window_after=40, roll_w=25
-    )
-    valid = ~np.isnan(mean_ac)
-    ax.fill_between(t_rel[valid],
-                    mean_ac[valid] - se_ac[valid],
-                    mean_ac[valid] + se_ac[valid],
-                    alpha=0.25, color="purple")
-    ax.plot(t_rel[valid], mean_ac[valid], color="purple", lw=2,
-            label="Mean event-aligned lag-1 AC")
-    ax.axvline(x=0, color="red", ls="--", lw=1.5, alpha=0.7,
-               label="Transition (t_rel = 0)")
-    ax.axhline(y=0, color="gray", ls=":", alpha=0.4)
-    ax.set_xlabel("Trials relative to individual transition")
-    ax.set_ylabel("Lag-1 autocorrelation of latent P(engaged)")
-    ax.set_title("(a) Pre-transition rise in lag-1 AC (critical slowing down)\n"
-                 "revealed by event-alignment at each agent's own transition\n"
-                 f"(shading = ±1 SE; n agents at midpoint: "
-                 f"{n_valid[len(t_rel)//2]} of {n_ag})")
-    ax.legend(fontsize=8)
-
-    # Annotate pre-transition trend
-    pre = t_rel < 0
-    if np.any(valid & pre):
-        pre_vals = mean_ac[valid & pre]
-        pre_ts = t_rel[valid & pre]
-        if len(pre_vals) > 5:
-            slope = np.polyfit(pre_ts[-30:], pre_vals[-30:], 1)[0]
-            ax.text(0.05, 0.92,
-                    f"Pre-transition slope: {slope:+.4f} per trial",
-                    transform=ax.transAxes, fontsize=8, color="purple")
-
-    # --- Panel (b): population susceptibility ---
-    ax = axes[1]
-    cpv = np.var(allP, axis=0)
-    ax.plot(np.arange(N_total), causal_ma(cpv, 15), "darkred", lw=2, label="Var")
-    ax2 = ax.twinx()
-    cpm = np.mean(allP, axis=0)
-    ax2.plot(np.arange(N_total), causal_ma(cpm, 15), "b--", lw=1.5, label="Mean")
-    ax.axvline(x=d["N_healthy"], color="red", ls="--", alpha=0.5,
-               label="Adversity onset")
-    ax.set_xlabel("Trial")
-    ax.set_ylabel("Var of latent P(engaged)", color="darkred")
-    ax2.set_ylabel("Mean latent P(engaged)", color="b")
-    ax.set_title("(b) Population susceptibility (latent variable)")
-    ax.legend(fontsize=7, loc="upper left"); ax2.legend(fontsize=7, loc="center right")
-
-    fig.suptitle(
-        "Early warning signals: event-aligned AC unmasks pre-transition critical slowing down\n"
-        "(population-average AC without alignment is masked by heterogeneous jump timing)",
-        fontsize=12, y=1.04
-    )
-    plt.tight_layout()
-    plt.savefig(f"{OUT}/fig_P3_ews_revised.png")
-    plt.close()
-    print("Saved fig_P3_ews_revised.png")
-
-
 # ====================================================================
 # Entry point called by main.py
 # ====================================================================
@@ -660,19 +572,17 @@ def run_all():
     Produces the three Step 1 publication figures:
       - fig_P2_onset_revised.png   (ensemble, schedule panels, quasistatic, variance)
       - fig_P_flags_revised.png    (bimodality, divergence, sudden jumps)
-      - fig_P3_ews_revised.png     (event-aligned AC, susceptibility)
 
     fig_P_reversal_true is not produced here (retained as a callable function
     for ad-hoc use).
     """
-    print("Running Step 1: onset dynamics, catastrophe flags, EWS...")
+    print("Running Step 1: onset dynamics and catastrophe flags...")
     jtimes = plot_onset_with_theory()
     jv = jtimes[jtimes < 600]
     if len(jv) > 0:
         print(f"  Jump times: median={np.median(jv):.0f}, "
               f"IQR=[{np.percentile(jv, 25):.0f}, {np.percentile(jv, 75):.0f}]")
     plot_sharpened_flags()
-    plot_ews_revised()
 
 
 # ====================================================================
