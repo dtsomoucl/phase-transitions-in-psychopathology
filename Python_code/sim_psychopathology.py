@@ -20,8 +20,7 @@ Implementation and outputs
 --------------------------
   1. fig_P2 combines the ensemble transition, quasistatic structure,
      variance, and separate P(engaged), γ(t), and Δc(t) time series.
-  2. fig_P_flags evaluates bimodality near the variance peak and shows
-     individual paired trajectory bifurcations.
+  2. fig_P_flags shows trajectory divergence and sudden shifts.
   3. fig_P3 uses event-aligned autocorrelation so population variation
      in transition timing does not obscure the pre-transition pattern.
   4. fig_P_reversal_true is available as a callable diagnostic but is not
