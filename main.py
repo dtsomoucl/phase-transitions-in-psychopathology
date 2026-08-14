@@ -10,8 +10,7 @@ Step 1 — Onset dynamics (sim_psychopathology.py)
   fig_P2_onset_revised.png        Ensemble, schedule panels, quasistatic FPs,
                                    population variance. Panel (b) is a three-
                                    panel split (P(eng) | gamma(t) | delta_c(t)).
-  fig_P_flags_revised.png         Catastrophe flags: bimodality at variance-peak
-                                   trial, trajectory divergence, sudden jumps.
+  fig_P_flags_revised.png         Catastrophe flags: trajectory divergence, sudden jumps.
 
 Step 2 — Recovery boundary and field dominance (step2_hysteresis.py)
   fig_S2_recovery_boundary.png    Heuristic recovery boundary in (gamma, delta_c)
