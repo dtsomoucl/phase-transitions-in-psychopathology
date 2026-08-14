@@ -4,7 +4,7 @@ main.py — Central orchestrator for the psychopathology phase-transition projec
 Runs all simulation scripts in sequence and produces exactly the figures that
 back up the claims in the analysis notebooks.
 
-Figures produced (11 total)
+Figures produced (10 total)
 ---------------------------
 Step 1 — Onset dynamics (sim_psychopathology.py)
   fig_P2_onset_revised.png        Ensemble, schedule panels, quasistatic FPs,
@@ -12,8 +12,6 @@ Step 1 — Onset dynamics (sim_psychopathology.py)
                                    panel split (P(eng) | gamma(t) | delta_c(t)).
   fig_P_flags_revised.png         Catastrophe flags: bimodality at variance-peak
                                    trial, trajectory divergence, sudden jumps.
-  fig_P3_ews_revised.png          EWS: event-aligned lag-1 AC (critical slowing
-                                   down) and population susceptibility.
 
 Step 2 — Recovery boundary and field dominance (step2_hysteresis.py)
   fig_S2_recovery_boundary.png    Heuristic recovery boundary in (gamma, delta_c)
@@ -163,7 +161,6 @@ def main():
     expected_figures = [
         "fig_P2_onset_revised.png",
         "fig_P_flags_revised.png",
-        "fig_P3_ews_revised.png",
         "fig_S2_recovery_boundary.png",
         "fig_S2_clinical_prediction.png",
         "fig_S2_cross_regime.png",
