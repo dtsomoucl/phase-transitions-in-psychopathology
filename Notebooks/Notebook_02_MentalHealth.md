@@ -34,7 +34,7 @@ These are theoretical probes. They are not fitted to MCS or ABCD and should not 
 
 Under the onset schedule, many agents show a relatively abrupt fall in latent $P(engaged)$ while the controls change gradually. Agents cross at different times, so the ensemble mean is smoother. The quasistatic mean-field analysis enters a multistable region before the engaged branch is lost.
 
-The variance peak in the simulation is an early-warning-like signature in the simulated latent variable. (It is **not** evidence that a questionnaire variance peak is a clinical warning signal.)
+The ensemble variance peak is a retrospective simulation diagnostic, not a prospective early-warning signal. It occurs after the quasistatic engaged-branch fold loss and partly reflects heterogeneous transition timing across agents. Event alignment additionally requires the transition time to be known in advance (these results should therefore not be presented as evidence for a clinical early-warning marker).
 
 ## 4. Fixed-schedule recovery result
 
