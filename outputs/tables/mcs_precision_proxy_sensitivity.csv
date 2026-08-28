@@ -1,3 +1,0 @@
-cohort,outcome,precision_proxy,precision_variable,field_estimate,precision_estimate,estimate_difference,coefficient_test_p,nobs,missingness_handling,status
-MCS,Age 17 psychological distress,Delay aversion,precision_delay_index,-0.3004611069235316,0.01364679710179684,-0.31410790402532845,1.9756455811364478e-25,8368,Complete-case analysis,Estimated
-MCS,Age 17 psychological distress,Word activity score,precision_word_index,-0.3073534617987061,0.11022143750038955,-0.41757489929909564,5.810673778660553e-42,8423,Complete-case analysis,Estimated

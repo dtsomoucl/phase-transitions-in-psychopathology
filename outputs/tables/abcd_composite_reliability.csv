@@ -1,4 +1,0 @@
-cohort,wave,composite,n_total,n_complete,item_count,items,alpha_std,omega_total
-ABCD,ses-02A,Motivation/engagement composite,10898,10865,3,school_env; school_involvement; reverse_school_disengagement,0.7488743471775235,0.7780124139924276
-ABCD,ses-02A,Cognitive-control primary proxy,10898,8050,1,nihtb_flanker,,
-ABCD,ses-03A,Positive-affect balance denominator,10197,9536,9,mh_y_pai_001; mh_y_pai_002; mh_y_pai_003; mh_y_pai_004; mh_y_pai_005; mh_y_pai_006; mh_y_pai_007; mh_y_pai_008; mh_y_pai_009,0.8613200442915159,0.8618942599136274

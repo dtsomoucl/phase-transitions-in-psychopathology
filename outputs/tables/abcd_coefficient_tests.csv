@@ -1,2 +1,0 @@
-cohort,outcome,model,contrast,estimate_difference,std_error,statistic,p_value,nobs,missingness_handling
-ABCD,Age 15 parent-reported internalising,combined,field_index - precision_index,-0.03496602461883913,0.01730202970219906,-2.0209203903051334,0.04334317639648809,5674,Complete-case analysis on a common comparison sample; family-cluster-robust standard errors

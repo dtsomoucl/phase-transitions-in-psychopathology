@@ -9,8 +9,7 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
 
 CODEBASE_ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE_ROOT = CODEBASE_ROOT.parent
-MANUSCRIPT_DIR = CODEBASE_ROOT / "Manuscript"
+MANUSCRIPT_DIR = CODEBASE_ROOT / "outputs" / "manuscript_figures"
 
 ACCENT = "#176B87"
 INK = "#27343A"
@@ -196,8 +195,8 @@ def make_figure():
         0.92,
         0.19,
         "3",
-        "DURATION",
-        "Does unequal evidence retention create\nschedule-dependent recovery costs?",
+        "EMPIRICAL",
+        "Can dense clinical data recover\na previously identified regime shift?",
     )
 
     ax = axes[1, 1]
@@ -205,9 +204,10 @@ def make_figure():
     ax.set_ylim(0, 1)
     ax.axis("off")
     panel_label(ax, "(d)", "Evidence hierarchy")
-    add_box(ax, (0.06, 0.69), 0.88, 0.18, "MODEL\nΔc, γ, z and transition dynamics", 8.9)
-    add_box(ax, (0.06, 0.40), 0.88, 0.18, "COHORTS\nPredictor ordering; exploratory log-ratio composite", 8.6)
-    add_box(ax, (0.06, 0.11), 0.88, 0.18, "DIRECT TEST\nIntensive sampling + individual model fitting", 8.6)
+    add_box(ax, (0.06, 0.74), 0.88, 0.15, "MODEL\nΔc, γ, z and transition dynamics", 8.7)
+    add_box(ax, (0.06, 0.52), 0.88, 0.15, "PRIMARY TRAJECTORY\nWichers: published day-127 transition recovered", 8.3)
+    add_box(ax, (0.06, 0.30), 0.88, 0.15, "SECONDARY VALIDATION\nAction history and sparse trajectories", 8.3)
+    add_box(ax, (0.06, 0.08), 0.88, 0.15, "DIRECT TEST\nManipulated actions + individual model fitting", 8.3)
 
     for panel in axes.ravel():
         panel.set_facecolor("white")
@@ -219,9 +219,8 @@ def make_figure():
 def main():
     MANUSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
     fig = make_figure()
-    for output_dir in [MANUSCRIPT_DIR, WORKSPACE_ROOT]:
-        fig.savefig(output_dir / "Fig_1.pdf", bbox_inches="tight")
-        fig.savefig(output_dir / "Fig_1.png", dpi=300, bbox_inches="tight")
+    fig.savefig(MANUSCRIPT_DIR / "Fig_1.pdf", bbox_inches="tight")
+    fig.savefig(MANUSCRIPT_DIR / "Fig_1.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
     print("Figure 1 regenerated as a theory-led conceptual diagram.")
 

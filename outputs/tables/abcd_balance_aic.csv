@@ -1,4 +1,0 @@
-outcome,model,aic,auc,brier,nobs,missingness_handling,delta_aic
-Age 15 probable internalising case (CBCL >= 64; age-13 baseline < 64),Stress only,2191.9871397018924,0.793916999442606,0.06912173052860487,4375,Complete-case analysis; family-cluster-robust standard errors,9.266516277656592
-Age 15 probable internalising case (CBCL >= 64; age-13 baseline < 64),Positive affect only,2204.072921450556,0.7891909303634371,0.06934647067193651,4375,Complete-case analysis; family-cluster-robust standard errors,21.352298026320113
-Age 15 probable internalising case (CBCL >= 64; age-13 baseline < 64),Balance index,2182.720623424236,0.796082623575885,0.06876659081274394,4375,Complete-case analysis; family-cluster-robust standard errors,0

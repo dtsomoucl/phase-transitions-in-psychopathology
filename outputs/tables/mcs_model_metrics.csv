@@ -1,5 +1,0 @@
-outcome,model,nobs,aic,bic,logLik,missingness_handling
-Age 17 psychological distress,base,8371,23207.891751880994,7761.289025268075,,Complete-case analysis on a common comparison sample
-Age 17 psychological distress,field,8371,22846.06092694703,7602.018897629381,,Complete-case analysis on a common comparison sample
-Age 17 psychological distress,precision,8371,23211.645535819018,7768.634929163488,,Complete-case analysis on a common comparison sample
-Age 17 psychological distress,combined,8371,22845.827407860328,7608.4258147808,,Complete-case analysis on a common comparison sample

@@ -1,0 +1,9 @@
+condition,tau,gamma,delta_c,branch_index,z_fixed_point,stable_flow
+Control,3.75,18.0,-0.05,1,-0.9611400011511555,True
+Control,3.75,18.0,-0.05,2,0.6126109165857833,False
+Control,3.75,18.0,-0.05,3,0.901768123584317,True
+Restore gamma only,3.75,20.0,-0.05,1,-0.9756192747888246,True
+Restore gamma only,3.75,20.0,-0.05,2,0.5073655824222606,False
+Restore gamma only,3.75,20.0,-0.05,3,0.9448493926548683,True
+Restore delta_c only,3.75,18.0,0.15,1,0.9793360695303827,True
+Restore both,3.75,20.0,0.15,1,0.9874013741124535,True
