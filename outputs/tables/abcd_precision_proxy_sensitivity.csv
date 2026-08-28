@@ -1,3 +1,0 @@
-cohort,outcome,precision_proxy,precision_variable,field_estimate,precision_estimate,estimate_difference,coefficient_test_p,nobs,missingness_handling,status
-ABCD,Age 15 parent-reported internalising,Pattern Comparison Processing Speed,precision_processing_speed_index,-0.06362418306105506,-0.021290336467162118,-0.04233384659389294,0.01827791738979908,5654,Complete-case analysis; family-cluster-robust standard errors,Estimated
-ABCD,Age 15 parent-reported internalising,NIH Toolbox Crystallized composite,precision_crystallized_index,-0.05742405540080766,0.026710014660170894,-0.08413407006097856,6.484084638535742e-6,5228,Complete-case analysis; family-cluster-robust standard errors,Estimated

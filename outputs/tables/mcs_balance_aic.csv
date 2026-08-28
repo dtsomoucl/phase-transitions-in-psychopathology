@@ -1,4 +1,0 @@
-outcome,model,aic,auc,brier,nobs,missingness_handling,delta_aic
-Age 23 probable depressive case (PHQ-2 >= 3),Distress only,5138.228557964077,0.6964619060880364,0.1544488207175719,5343,Complete-case analysis,11.168689715738765
-Age 23 probable depressive case (PHQ-2 >= 3),Wellbeing only,5281.658792450076,0.6589709376728409,0.1587304056754638,5343,Complete-case analysis,154.59892420173855
-Age 23 probable depressive case (PHQ-2 >= 3),Balance index,5127.059868248338,0.6955416480689718,0.154110740415668,5343,Complete-case analysis,0

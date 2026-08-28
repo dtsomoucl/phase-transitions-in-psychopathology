@@ -1,2 +1,0 @@
-cohort,outcome,model,contrast,estimate_difference,std_error,statistic,p_value,nobs,missingness_handling
-MCS,Age 17 psychological distress,combined_mi,field_index - precision_index,-0.32182435698828,0.028620426550076256,-11.24456885452752,2.4629712978088954e-29,9856,"Multiple imputation (m = 20), pooled with Rubin's rules"

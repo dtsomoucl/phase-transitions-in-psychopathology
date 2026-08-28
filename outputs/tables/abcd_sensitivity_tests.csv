@@ -1,3 +1,0 @@
-cohort,outcome,model,contrast,estimate_difference,std_error,statistic,p_value,nobs,missingness_handling
-ABCD,Age 15 youth BPM internalising,combined,field_index - precision_index,-0.0954875367793627,0.020697394397710008,-4.613505204786917,4.066970181212939e-6,5365,Complete-case analysis on a common comparison sample; family-cluster-robust standard errors
-ABCD,Age 15 youth BPM attention,combined,field_index - precision_index,-0.0857499622599483,0.02123857635636349,-4.0374628139449635,5.495178471011566e-5,5098,Complete-case analysis on a common comparison sample; family-cluster-robust standard errors

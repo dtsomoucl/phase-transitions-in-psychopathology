@@ -1,0 +1,2 @@
+n_agents,n_transitioned_by_trial_600,fold_loss_trial,transition_trial_median,transition_trial_q1,transition_trial_q3,fold_to_transition_lag_median,fold_to_transition_lag_q1,fold_to_transition_lag_q3,maximum_ten_trial_decline_median,n_with_observed_80_to_20_transition,smoothed_80_to_20_duration_median,smoothed_80_to_20_duration_q1,smoothed_80_to_20_duration_q3,duration_as_fraction_of_600_trial_window
+100,60,310,469.5,382.25,520.0,159.5,72.25,210.0,0.06886449750938411,21,162.0,130.0,232.0,0.27

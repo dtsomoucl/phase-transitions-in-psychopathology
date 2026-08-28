@@ -117,12 +117,15 @@ This is a local cusp normal-form equivalence. It is not a global identity betwee
 
 ## 6. Finite-agent interpretation
 
-The mean-field equation locates fixed-point structure. Finite simulated agents traverse that structure stochastically because policies and observations are sampled. Consequently:
+The mean-field equation locates fixed-point structure. Finite simulated agents traverse that structure stochastically because policies and observations are sampled. Moreover, $z$ and $\tau$ are both driven by accumulated actions: the order parameter does not fully relax while the coupling is held fixed. The quasistatic bifurcation diagram is therefore a moving structural reference, not an exact trajectory equation. Consequently:
 
-- a gradual control schedule can produce abrupt individual changes;
+- a gradual control schedule can remove a stable branch and produce nonlinear individual change;
 - agents need not cross at the same trial;
-- an ensemble mean can change smoothly even when individual traces jump; and
+- finite trajectories can lag substantially behind quasistatic fold loss;
+- apparent abruptness must be operationalised at the observation timescale; and
 - variance can peak in the transition window without establishing a clinical early-warning signal.
+
+In the prespecified onset simulation, the engaged branch is lost at trial 310, whereas the sustained finite-agent crossing occurs a median 159.5 trials later among agents that cross by trial 600. This lag is quantified rather than absorbed into the fold label.
 
 Any claim about a clinical transition requires participant-level longitudinal measurement and model fitting. Population regressions cannot identify the fold geometry or the latent order parameter.
 
@@ -130,9 +133,7 @@ Any claim about a clinical transition requires participant-level longitudinal me
 
 - `Python_code/core_functions.py`: entropy, EFE, posterior, and fixed-point functions.
 - `Python_code/sim_psychopathology.py`: onset schedule and finite-agent simulations.
-- `Python_code/psychopathology_regimes.py`: shared parameter regimes.
-- `Python_code/step6_verified_withdrawal.py`: state-anchored boundary-condition checks.
-- `main.py`: complete simulation sweep.
-
-The companion repository, <https://github.com/dtsomoucl/phase-transitions-in-active-inference>, contains the earlier domain-general derivation and additional algebraic detail.
+- `Python_code/psychopathology_regimes.py`: prespecified onset schedule.
+- `Python_code/recovery_bistable.py`: structurally audited recovery, history, and retention analyses.
+- `main.py`: complete simulation and public-validation workflow.
 
